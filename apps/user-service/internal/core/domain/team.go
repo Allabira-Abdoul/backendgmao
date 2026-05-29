@@ -23,11 +23,12 @@ func (Team) TableName() string {
 
 // TeamResponse is the DTO returned by API endpoints.
 type TeamResponse struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          uuid.UUID  `json:"id"`
+	Name        string     `json:"name"`
+	ManagerID   *uuid.UUID `json:"manager_id,omitempty"`
+	Description string     `json:"description"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
 // ToResponse converts a Team to a TeamResponse.
@@ -35,6 +36,7 @@ func (e *Team) ToResponse() TeamResponse {
 	return TeamResponse{
 		ID:          e.ID,
 		Name:        e.Name,
+		ManagerID:   e.ManagerID,
 		Description: e.Description,
 		CreatedAt:   e.CreatedAt,
 		UpdatedAt:   e.UpdatedAt,
@@ -43,12 +45,14 @@ func (e *Team) ToResponse() TeamResponse {
 
 // CreateTeamRequest is the DTO for creating a new team.
 type CreateTeamRequest struct {
-	Name        string `json:"name" binding:"required,min=2,max=255"`
-	Description string `json:"description" binding:"omitempty"`
+	Name        string  `json:"name" binding:"required,min=2,max=255"`
+	ManagerID   *string `json:"manager_id,omitempty" binding:"omitempty,uuid"`
+	Description string  `json:"description" binding:"omitempty"`
 }
 
 // UpdateTeamRequest is the DTO for updating an existing team.
 type UpdateTeamRequest struct {
 	Name        *string `json:"name,omitempty" binding:"omitempty,min=2,max=255"`
+	ManagerID   *string `json:"manager_id,omitempty" binding:"omitempty,uuid"`
 	Description *string `json:"description,omitempty" binding:"omitempty"`
 }

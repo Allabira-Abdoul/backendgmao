@@ -38,8 +38,18 @@ func (s *TeamService) CreateTeam(ctx context.Context, req domain.CreateTeamReque
 		return nil, ErrTeamNameExists
 	}
 
+	var managerID *uuid.UUID
+	if req.ManagerID != nil {
+		id, err := uuid.Parse(*req.ManagerID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid manager id: %w", err)
+		}
+		managerID = &id
+	}
+
 	team := &domain.Team{
 		Name:        req.Name,
+		ManagerID:   managerID,
 		Description: req.Description,
 	}
 
@@ -101,6 +111,18 @@ func (s *TeamService) UpdateTeam(ctx context.Context, id uuid.UUID, req domain.U
 
 	if req.Description != nil {
 		team.Description = *req.Description
+	}
+
+	if req.ManagerID != nil {
+		if *req.ManagerID == "" {
+			team.ManagerID = nil
+		} else {
+			id, err := uuid.Parse(*req.ManagerID)
+			if err != nil {
+				return nil, fmt.Errorf("invalid manager id: %w", err)
+			}
+			team.ManagerID = &id
+		}
 	}
 
 	if err := s.teamRepo.Update(ctx, team); err != nil {

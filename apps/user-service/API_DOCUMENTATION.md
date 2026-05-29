@@ -61,7 +61,14 @@ Retrieve details of the currently logged-in user context.
     "created_at": "2026-05-19T10:00:00Z",
     "updated_at": "2026-05-19T10:00:00Z"
   },
-  "team": null,
+  "team": {
+    "id": "f8a71b2d-3c4e-5f6a-7b8c-9d0e1f2a3b4c",
+    "name": "Maintenance Alpha",
+    "manager_id": "c3b99db1-d419-48e0-bb15-081079d38bb1",
+    "description": "Primary maintenance squad",
+    "created_at": "2026-05-19T10:00:00Z",
+    "updated_at": "2026-05-19T10:00:00Z"
+  },
   "created_at": "2026-05-19T10:15:00Z",
   "updated_at": "2026-05-19T10:15:00Z"
 }
@@ -125,7 +132,12 @@ Paginated list of all users in the system.
       "name": "Auditor",
       "description": "System auditor with logs inspection privilege"
     },
-    "team": null,
+    "team": {
+      "id": "f8a71b2d-3c4e-5f6a-7b8c-9d0e1f2a3b4c",
+      "name": "Maintenance Alpha",
+      "manager_id": "c3b99db1-d419-48e0-bb15-081079d38bb1",
+      "description": "Primary maintenance squad"
+    },
     "created_at": "2026-05-19T10:15:00Z",
     "updated_at": "2026-05-19T10:15:00Z"
   }
@@ -301,14 +313,41 @@ Retrieve the complete hardcoded vocabulary of capability keys.
 ### 🟢 Get Specific Team (Privilege: `TEAM_VIEW`)
 - **HTTP Method**: `GET`
 - **Path**: `/api/user/teams/:id`
+- **Success Response**: `200 OK`
+```json
+{
+  "id": "f8a71b2d-3c4e-5f6a-7b8c-9d0e1f2a3b4c",
+  "name": "Maintenance Alpha",
+  "manager_id": "c3b99db1-d419-48e0-bb15-081079d38bb1",
+  "description": "Primary maintenance squad",
+  "created_at": "2026-05-19T10:00:00Z",
+  "updated_at": "2026-05-19T10:00:00Z"
+}
+```
 
 ### 🟢 Create Team (Privilege: `TEAM_CREATE`)
 - **HTTP Method**: `POST`
 - **Path**: `/api/user/teams`
+- **Request Body**:
+```json
+{
+  "name": "Maintenance Alpha",
+  "manager_id": "c3b99db1-d419-48e0-bb15-081079d38bb1",
+  "description": "Primary maintenance squad"
+}
+```
 
 ### 🟢 Update Team (Privilege: `TEAM_UPDATE`)
 - **HTTP Method**: `PUT`
 - **Path**: `/api/user/teams/:id`
+- **Request Body**:
+```json
+{
+  "name": "Maintenance Alpha",
+  "manager_id": "e4f5g6h7-8i9j-0k1l-2m3n-4o5p6q7r8s9t",
+  "description": "Updated primary maintenance squad"
+}
+```
 
 ### 🟢 Delete Team (Privilege: `TEAM_DELETE`)
 - **HTTP Method**: `DELETE`
