@@ -8,18 +8,18 @@ All external client requests are routed through the API Gateway using the prefix
 
 ## 🔒 Security & Privileges
 
-This service enforces strict privilege-based RBAC for public reading, while writing is restricted to internal service-to-service communication only.
+This service enforces strict privilege-based RBAC for public reading, while writing is restricted to internal asynchronous EventBus ingestion.
 
-- **Read Logs**: Requires `AUDITOR` privilege.
-- **Write Logs**: Restricted to internal microservices via the `/internal` routes.
+- **Read Logs**: Requires `AUDIT_LOG_VIEW` privilege.
+- **Write Logs**: Log ingestion is handled via RabbitMQ EventBus, there is no public or internal HTTP endpoint for writes.
 
 ---
 
 ## 📡 Endpoints Specification
 
-### 🟢 List Audit Logs (Privilege: `AUDITOR`)
+### 🟢 List Audit Logs (Privilege: `AUDIT_LOG_VIEW`)
 
-Retrieve a paginated list of system-wide audit logs, ordered by the most recent events first.
+Retrieve a paginated and filterable list of system-wide audit logs, ordered by the most recent events first.
 
 - **HTTP Method**: `GET`
 - **Path**: `/api/audit/audit-logs`
@@ -30,6 +30,10 @@ Retrieve a paginated list of system-wide audit logs, ordered by the most recent 
 | :--- | :--- | :--- | :--- | :--- |
 | `page` | `integer` | No | `1` | The page number to fetch. |
 | `per_page` | `integer` | No | `100` | The page size (limit). Max 100 recommended. |
+| `service_name` | `string` | No | - | Filter by the microservice generating the log. |
+| `action` | `string` | No | - | Filter by event or action type (e.g., `WORKORDER_UPDATE`). |
+| `resource_type` | `string` | No | - | Filter by the type of resource affected (e.g., `WorkOrder`). |
+| `resource_id` | `string` | No | - | Filter by the ID of the resource affected. |
 
 #### Success Response
 - **Status Code**: `200 OK`
@@ -44,19 +48,28 @@ Retrieve a paginated list of system-wide audit logs, ordered by the most recent 
   "data": [
     {
       "id": "123e4567-e89b-12d3-a456-426614174000",
+      "performed_at": "2026-05-25T10:15:30Z",
+      "actor_id": "c3b99db1-d419-48e0-bb15-081079d38bb1",
       "service_name": "maintenance-service",
       "action": "WORKORDER_UPDATE",
-      "details": "Status changed from PENDING to IN_PROGRESS",
-      "user_name": "Technician Joe",
-      "performed_at": "2026-05-25T10:15:30Z"
+      "resource_type": "WorkOrder",
+      "resource_id": "wo-9912",
+      "changes": {
+        "status": {
+          "old": "PENDING",
+          "new": "IN_PROGRESS"
+        }
+      }
     },
     {
       "id": "987e6543-e21b-34d1-b546-537614175111",
+      "performed_at": "2026-05-25T09:12:10Z",
+      "actor_id": "a1b22db1-d419-48e0-bb15-081079d38bb2",
       "service_name": "user-service",
       "action": "USER_LOGIN",
-      "details": "Successful login",
-      "user_name": "Admin Jane",
-      "performed_at": "2026-05-25T09:12:10Z"
+      "resource_type": "Session",
+      "resource_id": "sess-44",
+      "changes": null
     }
   ]
 }
@@ -64,46 +77,36 @@ Retrieve a paginated list of system-wide audit logs, ordered by the most recent 
 
 ---
 
-## 🔒 Internal Service-to-Service Endpoints
+## 🔒 Internal Service-to-Service Ingestion (EventBus)
 
-These endpoints are bypass-routed but blocked from public gateway access. They require the internal service authentication mechanism (e.g., specific internal JWT or `X-Internal-Service` headers) to run.
+The Audit Service no longer exposes synchronous HTTP routes for writing logs. Instead, it subscribes to the RabbitMQ EventBus on the `audit.logs` exchange with the routing key `audit.log.*`.
 
-### 🟢 Create Audit Log (Internal)
+Other services should publish events to this routing key with the following payload structure:
 
-Record a new system action. The `Audit Service` will dynamically resolve the user's full name by calling the `user-service` if a `user_id` is provided.
-
-- **HTTP Method**: `POST`
-- **Path**: `/internal/audit-logs`
-- **Headers**: `X-Internal-Service: <calling-service-name>`, `Authorization: Bearer <internal_token>`
-
-#### Request Body
+#### Event Payload structure
 | Field | Type | Required | Validation | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `service_name` | `string` | Yes | - | Name of the microservice generating the log. |
 | `action` | `string` | Yes | - | Event or action type (e.g., `ASSET_CREATED`). |
-| `details` | `string` | No | - | Optional descriptive JSON or text details. |
-| `user_id` | `string` | No | Valid UUID | The ID of the user performing the action. |
+| `actor_id` | `string` | No | Valid UUID | The ID of the user performing the action. |
+| `resource_type` | `string` | No | - | The type of resource being acted upon. |
+| `resource_id` | `string` | No | - | The unique identifier of the resource. |
+| `changes` | `JSON Object` | No | - | The specific changes applied to the resource, or generic JSON details. |
 
-##### Example
+##### Example RabbitMQ Message Publish
 ```json
 {
-  "service_name": "maintenance-service",
-  "action": "ASSET_CREATED",
-  "details": "Created new HVAC asset ID 992",
-  "user_id": "c3b99db1-d419-48e0-bb15-081079d38bb1"
-}
-```
-
-#### Success Response
-- **Status Code**: `201 Created`
-- **Body**: Returns the recorded audit log containing the resolved `user_name` and auto-generated `performed_at` timestamp.
-```json
-{
-  "id": "123e4567-e89b-12d3-a456-426614174000",
-  "service_name": "maintenance-service",
-  "action": "ASSET_CREATED",
-  "details": "Created new HVAC asset ID 992",
-  "user_name": "Admin Jane",
-  "performed_at": "2026-05-25T11:42:15Z"
+  "Type": "ASSET_CREATED",
+  "Payload": {
+    "service_name": "maintenance-service",
+    "action": "ASSET_CREATED",
+    "actor_id": "c3b99db1-d419-48e0-bb15-081079d38bb1",
+    "resource_type": "Asset",
+    "resource_id": "992",
+    "changes": {
+      "name": "HVAC Unit A",
+      "location": "Terminal 1"
+    }
+  }
 }
 ```
