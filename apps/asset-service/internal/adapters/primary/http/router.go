@@ -40,6 +40,13 @@ func RegisterRoutes(
 			instances.GET("/equipment", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetEquipmentInstances)
 			instances.GET("/equipment/code/:code", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetEquipmentInstanceByCode)
 			instances.GET("/equipment/:id", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetEquipmentInstanceByID)
+
+			instances.POST("/parts/:id/move", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.MovePartInstance)
+		}
+
+		actions := authenticated.Group("/actions")
+		{
+			actions.POST("/consume-part", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.ConsumePart)
 		}
 	}
 }

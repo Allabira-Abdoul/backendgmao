@@ -20,4 +20,7 @@ type AssetService interface {
 	GetEquipmentInstances(ctx context.Context) ([]domain.EquipmentInstanceResponse, error)
 	GetEquipmentInstanceByCode(ctx context.Context, code string) (domain.EquipmentInstanceResponse, error)
 	GetEquipmentInstanceByID(ctx context.Context, id uuid.UUID) (domain.EquipmentInstanceResponse, error)
+
+	MovePartInstance(ctx context.Context, partInstanceID uuid.UUID, req domain.MovePartInstanceRequest) (domain.PartInstanceResponse, error)
+	ConsumePart(ctx context.Context, req domain.ConsumePartRequest, userID uuid.UUID) error
 }

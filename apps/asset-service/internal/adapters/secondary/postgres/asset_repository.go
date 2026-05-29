@@ -49,6 +49,10 @@ func (r *assetRepository) GetPartModelByID(ctx context.Context, id uuid.UUID) (*
 	return &model, err
 }
 
+func (r *assetRepository) UpdatePartModel(ctx context.Context, model *domain.PartModel) error {
+	return r.db.WithContext(ctx).Save(model).Error
+}
+
 func (r *assetRepository) CreateEquipmentInstance(ctx context.Context, instance *domain.EquipmentInstance) error {
 	return r.db.WithContext(ctx).Create(instance).Error
 }
@@ -74,3 +78,18 @@ func (r *assetRepository) GetEquipmentInstanceByID(ctx context.Context, id uuid.
 	err := r.db.WithContext(ctx).Preload("EquipmentModel").Preload("Parts").Preload("Parts.PartModel").Preload("Thresholds").First(&instance, "id = ?", id).Error
 	return &instance, err
 }
+
+func (r *assetRepository) GetPartInstanceByID(ctx context.Context, id uuid.UUID) (*domain.PartInstance, error) {
+	var instance domain.PartInstance
+	err := r.db.WithContext(ctx).Preload("PartModel").Preload("Thresholds").First(&instance, "id = ?", id).Error
+	return &instance, err
+}
+
+func (r *assetRepository) UpdatePartInstance(ctx context.Context, instance *domain.PartInstance) error {
+	return r.db.WithContext(ctx).Save(instance).Error
+}
+
+func (r *assetRepository) CreatePartConsumptionLog(ctx context.Context, log *domain.PartConsumptionLog) error {
+	return r.db.WithContext(ctx).Create(log).Error
+}
+

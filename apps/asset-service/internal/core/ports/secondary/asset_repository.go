@@ -15,6 +15,7 @@ type AssetRepository interface {
 	GetPartModels(ctx context.Context) ([]domain.PartModel, error)
 	GetEquipmentModelByID(ctx context.Context, id uuid.UUID) (*domain.EquipmentModel, error)
 	GetPartModelByID(ctx context.Context, id uuid.UUID) (*domain.PartModel, error)
+	UpdatePartModel(ctx context.Context, model *domain.PartModel) error
 
 	// Instances
 	CreateEquipmentInstance(ctx context.Context, instance *domain.EquipmentInstance) error
@@ -22,4 +23,9 @@ type AssetRepository interface {
 	GetEquipmentInstances(ctx context.Context) ([]domain.EquipmentInstance, error)
 	GetEquipmentInstanceByCode(ctx context.Context, code string) (*domain.EquipmentInstance, error)
 	GetEquipmentInstanceByID(ctx context.Context, id uuid.UUID) (*domain.EquipmentInstance, error)
+	GetPartInstanceByID(ctx context.Context, id uuid.UUID) (*domain.PartInstance, error)
+	UpdatePartInstance(ctx context.Context, instance *domain.PartInstance) error
+
+	// Logs
+	CreatePartConsumptionLog(ctx context.Context, log *domain.PartConsumptionLog) error
 }

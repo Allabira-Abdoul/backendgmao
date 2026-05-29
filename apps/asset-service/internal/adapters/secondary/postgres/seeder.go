@@ -120,6 +120,7 @@ func createPartModel(db *gorm.DB, name, category string, qty int) domain.PartMod
 		Name:          name,
 		Category:      category,
 		SpareQuantity: qty,
+		IsSerialized:  true,
 	}
 	db.Create(&p)
 	return p
@@ -142,9 +143,11 @@ func createEquipmentInstance(db *gorm.DB, code string, modelID uuid.UUID, status
 func createPartInstance(db *gorm.DB, eqInstID, partModelID uuid.UUID) domain.PartInstance {
 	p := domain.PartInstance{
 		ID:                  uuid.New(),
-		EquipmentInstanceID: eqInstID,
+		EquipmentInstanceID: &eqInstID,
 		PartModelID:         partModelID,
+		SerialNumber:        "SN-" + uuid.NewString()[:8],
 		Status:              "OPERATIONAL",
+		CurrentLocation:     "Installed",
 	}
 	db.Create(&p)
 	return p

@@ -138,6 +138,58 @@ func (h *AssetHandler) GetEquipmentInstanceByID(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
+// --- Actions ---
+
+func (h *AssetHandler) ConsumePart(c *gin.Context) {
+	var req domain.ConsumePartRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Extract userID from context (set by Auth middleware)
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	if err := h.service.ConsumePart(c.Request.Context(), req, userID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "part consumed successfully"})
+}
+
+func (h *AssetHandler) MovePartInstance(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := uuid.Parse(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid uuid"})
+		return
+	}
+
+	var req domain.MovePartInstanceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	res, err := h.service.MovePartInstance(c.Request.Context(), id, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, res)
+}
+
 // --- Backward compatibility wrapper for old clients ---
 func (h *AssetHandler) GetLegacyAssets(c *gin.Context) {
 	res, err := h.service.GetEquipmentInstances(c.Request.Context())

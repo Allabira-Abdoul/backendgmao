@@ -61,6 +61,7 @@ func main() {
 		&domain.EquipmentInstance{}, 
 		&domain.PartInstance{}, 
 		&domain.MetricThreshold{},
+		&domain.PartConsumptionLog{},
 	); err != nil {
 		log.Fatalf("Failed to migrate Asset tables: %v", err)
 	}
