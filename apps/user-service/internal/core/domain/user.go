@@ -36,6 +36,16 @@ func (User) TableName() string {
 	return "users"
 }
 
+// Suspend sets the user's status to INACTIVE.
+func (u *User) Suspend() {
+	u.Status = StatusInactive
+}
+
+// Activate sets the user's status to ACTIVE.
+func (u *User) Activate() {
+	u.Status = StatusActive
+}
+
 // UserResponse is the DTO returned by API endpoints (excludes password).
 type UserResponse struct {
 	ID            uuid.UUID     `json:"id"`
@@ -89,20 +99,15 @@ type InternalUserResponse struct {
 
 // ToInternalResponse converts a User to an InternalUserResponse.
 func (u *User) ToInternalResponse() InternalUserResponse {
-	privileges := make([]string, 0)
-	for _, rp := range u.Role.Privileges {
-		privileges = append(privileges, rp.Privilege)
-	}
-
 	return InternalUserResponse{
-		ID:            u.ID,
-		FullName:      u.FullName,
-		Email:         u.Email,
+		ID:                 u.ID,
+		FullName:           u.FullName,
+		Email:              u.Email,
 		Password:           u.Password,
 		Status:             u.Status,
 		MustChangePassword: u.MustChangePassword,
-		RoleName:      u.Role.Name,
-		Privileges:    privileges,
+		RoleName:           u.Role.Name,
+		Privileges:         u.Role.GetPrivilegeStrings(),
 	}
 }
 

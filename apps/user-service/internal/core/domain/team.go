@@ -8,11 +8,12 @@ import (
 
 // Team represents a team or group of users in the GMAO system.
 type Team struct {
-	ID          uuid.UUID `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	Name        string    `gorm:"column:name;uniqueIndex;not null" json:"name"`
-	Description string    `gorm:"column:description" json:"description"`
-	CreatedAt   time.Time `gorm:"column:created_at" json:"created_at"`
-	UpdatedAt   time.Time `gorm:"column:updated_at" json:"updated_at"`
+	ID          uuid.UUID  `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	Name        string     `gorm:"column:name;uniqueIndex;not null" json:"name"`
+	ManagerID   *uuid.UUID `gorm:"column:manager_id;type:uuid" json:"manager_id"`
+	Description string     `gorm:"column:description" json:"description"`
+	CreatedAt   time.Time  `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt   time.Time  `gorm:"column:updated_at" json:"updated_at"`
 }
 
 // TableName overrides the default table name.

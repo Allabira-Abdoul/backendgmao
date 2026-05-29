@@ -4,27 +4,30 @@ import (
 	"errors"
 	"net/http"
 
-	"backend-gmao/apps/user-service/internal/core/domain"
 	"backend-gmao/apps/user-service/internal/application/service"
+	"backend-gmao/apps/user-service/internal/core/domain"
+	"backend-gmao/apps/user-service/internal/core/ports/primary"
 	"backend-gmao/pkg/response"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
+// TeamHandler handles HTTP requests for team operations.
 type TeamHandler struct {
-	service *service.TeamService
+	teamService primary.TeamUseCase
 }
 
-func NewTeamHandler(service *service.TeamService) *TeamHandler {
-	return &TeamHandler{service: service}
+// NewTeamHandler creates a new TeamHandler.
+func NewTeamHandler(teamService primary.TeamUseCase) *TeamHandler {
+	return &TeamHandler{teamService: teamService}
 }
 
 // ListTeams handles GET /teams
 func (h *TeamHandler) ListTeams(c *gin.Context) {
 	pagination := response.GetPagination(c, 1, 20)
 
-	teams, total, err := h.service.ListTeams(c.Request.Context(), pagination.Limit, pagination.Offset)
+	teams, total, err := h.teamService.ListTeams(c.Request.Context(), pagination.Limit, pagination.Offset)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list teams")
 		return
@@ -40,7 +43,7 @@ func (h *TeamHandler) CreateTeam(c *gin.Context) {
 		return
 	}
 
-	team, err := h.service.CreateTeam(c.Request.Context(), req)
+	team, err := h.teamService.CreateTeam(c.Request.Context(), req)
 	if err != nil {
 		if errors.Is(err, service.ErrTeamNameExists) {
 			response.Error(c, http.StatusConflict, "TEAM_EXISTS", err.Error())
@@ -64,7 +67,7 @@ func (h *TeamHandler) GetTeam(c *gin.Context) {
 		return
 	}
 
-	team, err := h.service.GetTeamByID(c.Request.Context(), id)
+	team, err := h.teamService.GetTeamByID(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, service.ErrTeamNotFound) {
 			response.Error(c, http.StatusNotFound, "NOT_FOUND", "Team not found")
@@ -90,7 +93,7 @@ func (h *TeamHandler) UpdateTeam(c *gin.Context) {
 		return
 	}
 
-	team, err := h.service.UpdateTeam(c.Request.Context(), id, req)
+	team, err := h.teamService.UpdateTeam(c.Request.Context(), id, req)
 	if err != nil {
 		if errors.Is(err, service.ErrTeamNotFound) {
 			response.Error(c, http.StatusNotFound, "NOT_FOUND", "Team not found")
@@ -118,7 +121,7 @@ func (h *TeamHandler) DeleteTeam(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.DeleteTeam(c.Request.Context(), id); err != nil {
+	if err := h.teamService.DeleteTeam(c.Request.Context(), id); err != nil {
 		if errors.Is(err, service.ErrTeamNotFound) {
 			response.Error(c, http.StatusNotFound, "NOT_FOUND", "Team not found")
 			return

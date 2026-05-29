@@ -10,12 +10,14 @@ import (
 	"time"
 
 	httphandler "backend-gmao/apps/user-service/internal/adapters/primary/http"
+	eventbusadapter "backend-gmao/apps/user-service/internal/adapters/secondary/eventbus"
 	pgadapter "backend-gmao/apps/user-service/internal/adapters/secondary/postgres"
 	"backend-gmao/apps/user-service/internal/application/service"
 	"backend-gmao/apps/user-service/internal/core/domain"
 	"backend-gmao/pkg/auth"
 	"backend-gmao/pkg/db"
 	"backend-gmao/pkg/discovery"
+	"backend-gmao/pkg/eventbus"
 
 	"github.com/gin-gonic/gin"
 )
@@ -103,8 +105,16 @@ func main() {
 	roleRepo := pgadapter.NewRoleRepository(database)
 	teamRepo := pgadapter.NewTeamRepository(database)
 
+	// --- EventBus (RabbitMQ) ---
+	rabbitmqURL := getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+	bus, err := eventbus.NewRabbitMQBus(rabbitmqURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
+	}
+	eventPublisher := eventbusadapter.NewRabbitMQPublisher(bus)
+
 	// --- Application Services ---
-	userService := service.NewUserService(userRepo, roleRepo, teamRepo)
+	userService := service.NewUserService(userRepo, roleRepo, teamRepo, eventPublisher)
 	roleService := service.NewRoleService(roleRepo, userRepo)
 	teamService := service.NewTeamService(teamRepo, userRepo)
 

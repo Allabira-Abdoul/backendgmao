@@ -3,20 +3,20 @@ package http
 import (
 	"net/http"
 
-	"backend-gmao/apps/user-service/internal/application/service"
+	"backend-gmao/apps/user-service/internal/core/ports/primary"
 	"backend-gmao/pkg/response"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
-// InternalHandler handles internal service-to-service HTTP requests.
+// InternalHandler handles service-to-service HTTP requests.
 type InternalHandler struct {
-	userService *service.UserService
+	userService primary.UserUseCase
 }
 
 // NewInternalHandler creates a new InternalHandler.
-func NewInternalHandler(userService *service.UserService) *InternalHandler {
+func NewInternalHandler(userService primary.UserUseCase) *InternalHandler {
 	return &InternalHandler{userService: userService}
 }
 

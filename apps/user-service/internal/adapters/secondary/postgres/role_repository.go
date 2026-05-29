@@ -32,7 +32,7 @@ func (r *RoleRepository) Create(ctx context.Context, role *domain.Role) error {
 func (r *RoleRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Role, error) {
 	var role domain.Role
 	result := r.db.WithContext(ctx).
-		Preload("Privileges").
+		Preload("InternalPrivileges").
 		Where("id = ?", id).
 		First(&role)
 
@@ -46,7 +46,7 @@ func (r *RoleRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Ro
 func (r *RoleRepository) FindByName(ctx context.Context, name string) (*domain.Role, error) {
 	var role domain.Role
 	result := r.db.WithContext(ctx).
-		Preload("Privileges").
+		Preload("InternalPrivileges").
 		Where("name = ?", name).
 		First(&role)
 
@@ -60,7 +60,7 @@ func (r *RoleRepository) FindByName(ctx context.Context, name string) (*domain.R
 func (r *RoleRepository) FindAll(ctx context.Context) ([]domain.Role, error) {
 	var roles []domain.Role
 	result := r.db.WithContext(ctx).
-		Preload("Privileges").
+		Preload("InternalPrivileges").
 		Order("name ASC").
 		Find(&roles)
 

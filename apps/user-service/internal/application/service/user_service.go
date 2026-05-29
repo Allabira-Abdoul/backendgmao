@@ -8,6 +8,7 @@ import (
 	"math/big"
 
 	"backend-gmao/apps/user-service/internal/core/domain"
+	"backend-gmao/apps/user-service/internal/core/ports/primary"
 	"backend-gmao/apps/user-service/internal/core/ports/secondary"
 	"backend-gmao/pkg/auth"
 	"github.com/google/uuid"
@@ -20,19 +21,21 @@ var (
 	ErrCannotDeleteSelf = errors.New("you cannot delete your own account")
 )
 
-// UserService implements the UserServicePort primary port.
+// UserService implements the primary.UserUseCase primary port.
 type UserService struct {
-	userRepo secondary.UserRepository
-	roleRepo secondary.RoleRepository
-	teamRepo secondary.TeamRepository
+	userRepo       secondary.UserRepository
+	roleRepo       secondary.RoleRepository
+	teamRepo       secondary.TeamRepository
+	eventPublisher secondary.EventPublisher
 }
 
 // NewUserService creates a new UserService instance.
-func NewUserService(userRepo secondary.UserRepository, roleRepo secondary.RoleRepository, teamRepo secondary.TeamRepository) *UserService {
+func NewUserService(userRepo secondary.UserRepository, roleRepo secondary.RoleRepository, teamRepo secondary.TeamRepository, eventPublisher secondary.EventPublisher) primary.UserUseCase {
 	return &UserService{
-		userRepo: userRepo,
-		roleRepo: roleRepo,
-		teamRepo: teamRepo,
+		userRepo:       userRepo,
+		roleRepo:       roleRepo,
+		teamRepo:       teamRepo,
+		eventPublisher: eventPublisher,
 	}
 }
 
@@ -73,6 +76,11 @@ func (s *UserService) CreateUser(ctx context.Context, req domain.CreateUserReque
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
+	// Publish audit event
+	s.eventPublisher.PublishAuditLog(ctx, "USER_CREATED", "User", user.ID.String(), nil, map[string]interface{}{
+		"email": user.Email,
+	})
+
 	// Reload the user with role preloaded
 	created, err := s.userRepo.FindByID(ctx, user.ID)
 	if err != nil {
@@ -94,9 +102,9 @@ func (s *UserService) GetUserByID(ctx context.Context, id uuid.UUID) (*domain.Us
 	return &resp, nil
 }
 
-// GetUserByEmail retrieves a user by email for internal authentication use.
-func (s *UserService) GetUserByEmail(ctx context.Context, email string) (*domain.InternalUserResponse, error) {
-	user, err := s.userRepo.FindByEmail(ctx, email)
+// GetUserByIDInternal retrieves a user by UUID for internal authentication use.
+func (s *UserService) GetUserByIDInternal(ctx context.Context, id uuid.UUID) (*domain.InternalUserResponse, error) {
+	user, err := s.userRepo.FindByID(ctx, id)
 	if err != nil {
 		return nil, ErrUserNotFound
 	}
@@ -105,9 +113,9 @@ func (s *UserService) GetUserByEmail(ctx context.Context, email string) (*domain
 	return &resp, nil
 }
 
-// GetUserByIDInternal retrieves a user by UUID for internal authentication use.
-func (s *UserService) GetUserByIDInternal(ctx context.Context, id uuid.UUID) (*domain.InternalUserResponse, error) {
-	user, err := s.userRepo.FindByID(ctx, id)
+// GetUserByEmail retrieves a user by email for internal authentication use.
+func (s *UserService) GetUserByEmail(ctx context.Context, email string) (*domain.InternalUserResponse, error) {
+	user, err := s.userRepo.FindByEmail(ctx, email)
 	if err != nil {
 		return nil, ErrUserNotFound
 	}
@@ -138,7 +146,10 @@ func (s *UserService) UpdateUser(ctx context.Context, id uuid.UUID, req domain.U
 		return nil, ErrUserNotFound
 	}
 
+	changes := make(map[string]interface{})
+
 	if req.FullName != nil {
+		changes["full_name"] = map[string]interface{}{"old": user.FullName, "new": *req.FullName}
 		user.FullName = *req.FullName
 	}
 
@@ -148,10 +159,12 @@ func (s *UserService) UpdateUser(ctx context.Context, id uuid.UUID, req domain.U
 		if existing != nil && existing.ID != id {
 			return nil, ErrEmailExists
 		}
+		changes["email"] = map[string]interface{}{"old": user.Email, "new": *req.Email}
 		user.Email = *req.Email
 	}
 
 	if req.Status != nil {
+		changes["status"] = map[string]interface{}{"old": string(user.Status), "new": *req.Status}
 		user.Status = domain.AccountStatus(*req.Status)
 	}
 
@@ -164,23 +177,30 @@ func (s *UserService) UpdateUser(ctx context.Context, id uuid.UUID, req domain.U
 		if err != nil || role == nil {
 			return nil, ErrRoleNotFound
 		}
+		changes["role_id"] = map[string]interface{}{"old": user.RoleID.String(), "new": roleID.String()}
 		user.RoleID = roleID
 	}
 
 	if req.TeamID != nil {
 		if *req.TeamID == "" {
+			changes["team_id"] = map[string]interface{}{"old": user.TeamID, "new": nil}
 			user.TeamID = nil
 		} else {
 			teamID, err := uuid.Parse(*req.TeamID)
 			if err != nil {
 				return nil, fmt.Errorf("invalid team ID: %w", err)
 			}
+			changes["team_id"] = map[string]interface{}{"old": user.TeamID, "new": teamID.String()}
 			user.TeamID = &teamID
 		}
 	}
 
 	if err := s.userRepo.Update(ctx, user); err != nil {
 		return nil, fmt.Errorf("failed to update user: %w", err)
+	}
+
+	if len(changes) > 0 {
+		s.eventPublisher.PublishAuditLog(ctx, "USER_UPDATE", "User", user.ID.String(), nil, changes)
 	}
 
 	// Reload with role
@@ -203,6 +223,55 @@ func (s *UserService) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	if err := s.userRepo.Delete(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
+
+	s.eventPublisher.PublishAuditLog(ctx, "USER_DELETE", "User", id.String(), nil, nil)
+	return nil
+}
+
+// SuspendUser sets a user's status to INACTIVE.
+func (s *UserService) SuspendUser(ctx context.Context, id uuid.UUID) error {
+	user, err := s.userRepo.FindByID(ctx, id)
+	if err != nil {
+		return ErrUserNotFound
+	}
+
+	oldStatus := user.Status
+	user.Suspend()
+
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return fmt.Errorf("failed to suspend user: %w", err)
+	}
+
+	s.eventPublisher.PublishAuditLog(ctx, "USER_SUSPEND", "User", user.ID.String(), nil, map[string]interface{}{
+		"status": map[string]interface{}{"old": string(oldStatus), "new": string(user.Status)},
+	})
+
+	return nil
+}
+
+// AssignRoleToUser assigns a new role to the user and publishes an audit log.
+func (s *UserService) AssignRoleToUser(ctx context.Context, userID uuid.UUID, roleID uuid.UUID) error {
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return ErrUserNotFound
+	}
+
+	role, err := s.roleRepo.FindByID(ctx, roleID)
+	if err != nil || role == nil {
+		return ErrRoleNotFound
+	}
+
+	oldRoleID := user.RoleID
+	user.RoleID = roleID
+
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return fmt.Errorf("failed to assign role: %w", err)
+	}
+
+	// Using the EventPublisher to create the Audit Log
+	s.eventPublisher.PublishAuditLog(ctx, "USER_ASSIGN_ROLE", "User", user.ID.String(), nil, map[string]interface{}{
+		"role_id": map[string]interface{}{"old": oldRoleID.String(), "new": roleID.String()},
+	})
 
 	return nil
 }
@@ -233,6 +302,7 @@ func (s *UserService) AdminResetPassword(ctx context.Context, id uuid.UUID) (str
 		return "", fmt.Errorf("failed to update user password: %w", err)
 	}
 
+	s.eventPublisher.PublishAuditLog(ctx, "USER_RESET_PASSWORD", "User", user.ID.String(), nil, nil)
 	return code, nil
 }
 
@@ -255,5 +325,6 @@ func (s *UserService) ChangePassword(ctx context.Context, id uuid.UUID, newPassw
 		return fmt.Errorf("failed to update user password: %w", err)
 	}
 
+	s.eventPublisher.PublishAuditLog(ctx, "USER_CHANGE_PASSWORD", "User", user.ID.String(), nil, nil)
 	return nil
 }

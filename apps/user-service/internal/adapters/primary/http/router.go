@@ -1,8 +1,8 @@
 package http
 
 import (
-	"backend-gmao/apps/user-service/internal/application/service"
 	"backend-gmao/apps/user-service/internal/core/domain"
+	"backend-gmao/apps/user-service/internal/core/ports/primary"
 	"backend-gmao/pkg/auth"
 	"backend-gmao/pkg/middleware"
 	"github.com/gin-gonic/gin"
@@ -12,9 +12,9 @@ import (
 func RegisterRoutes(
 	router *gin.Engine,
 	jwtManager *auth.JWTManager,
-	userService *service.UserService,
-	roleService *service.RoleService,
-	teamService *service.TeamService,
+	userService primary.UserUseCase,
+	roleService primary.RoleUseCase,
+	teamService primary.TeamUseCase,
 ) {
 	userHandler := NewUserHandler(userService)
 	roleHandler := NewRoleHandler(roleService)

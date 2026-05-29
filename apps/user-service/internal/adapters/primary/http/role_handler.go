@@ -6,6 +6,7 @@ import (
 
 	"backend-gmao/apps/user-service/internal/application/service"
 	"backend-gmao/apps/user-service/internal/core/domain"
+	"backend-gmao/apps/user-service/internal/core/ports/primary"
 	"backend-gmao/pkg/response"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -13,17 +14,17 @@ import (
 
 // RoleHandler handles HTTP requests for role operations.
 type RoleHandler struct {
-	service *service.RoleService
+	roleService primary.RoleUseCase
 }
 
-// NewRoleHandler creates a new RoleHandler.
-func NewRoleHandler(service *service.RoleService) *RoleHandler {
-	return &RoleHandler{service: service}
+// NewRoleHandler creates a new RoleHandler instance.
+func NewRoleHandler(roleService primary.RoleUseCase) *RoleHandler {
+	return &RoleHandler{roleService: roleService}
 }
 
 // ListRoles handles GET /roles
 func (h *RoleHandler) ListRoles(c *gin.Context) {
-	roles, err := h.service.ListRoles(c.Request.Context())
+	roles, err := h.roleService.ListRoles(c.Request.Context())
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list roles")
 		return
@@ -40,7 +41,7 @@ func (h *RoleHandler) GetRole(c *gin.Context) {
 		return
 	}
 
-	role, err := h.service.GetRoleByID(c.Request.Context(), id)
+	role, err := h.roleService.GetRoleByID(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, service.ErrRoleNotFound) {
 			response.Error(c, http.StatusNotFound, "NOT_FOUND", "Role not found")
@@ -55,13 +56,13 @@ func (h *RoleHandler) GetRole(c *gin.Context) {
 
 // ListPrivileges handles GET /privileges — returns all system-defined privileges
 func (h *RoleHandler) ListPrivileges(c *gin.Context) {
-	privileges, err := h.service.ListPrivileges(c.Request.Context())
+	privileges, err := h.roleService.ListPrivileges(c.Request.Context())
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list privileges")
 		return
 	}
 
-	privilegesByDomain, err := h.service.PrivilegesByDomain(c.Request.Context())
+	privilegesByDomain, err := h.roleService.PrivilegesByDomain(c.Request.Context())
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list privileges by domain")
 		return
@@ -80,7 +81,7 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 		return
 	}
 
-	role, err := h.service.CreateRole(c.Request.Context(), req)
+	role, err := h.roleService.CreateRole(c.Request.Context(), req)
 	if err != nil {
 		if errors.Is(err, service.ErrRoleNameExists) {
 			response.Error(c, http.StatusConflict, "ROLE_EXISTS", err.Error())
@@ -111,7 +112,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 		return
 	}
 
-	role, err := h.service.UpdateRole(c.Request.Context(), id, req)
+	role, err := h.roleService.UpdateRole(c.Request.Context(), id, req)
 	if err != nil {
 		if errors.Is(err, service.ErrRoleNotFound) {
 			response.Error(c, http.StatusNotFound, "NOT_FOUND", "Role not found")
@@ -136,7 +137,7 @@ func (h *RoleHandler) DeleteRole(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.DeleteRole(c.Request.Context(), id); err != nil {
+	if err := h.roleService.DeleteRole(c.Request.Context(), id); err != nil {
 		if errors.Is(err, service.ErrRoleNotFound) {
 			response.Error(c, http.StatusNotFound, "NOT_FOUND", "Role not found")
 			return
@@ -162,7 +163,7 @@ func (h *RoleHandler) SetRolePrivileges(c *gin.Context) {
 		return
 	}
 
-	role, err := h.service.SetRolePrivileges(c.Request.Context(), id, req)
+	role, err := h.roleService.SetRolePrivileges(c.Request.Context(), id, req)
 	if err != nil {
 		if errors.Is(err, service.ErrRoleNotFound) {
 			response.Error(c, http.StatusNotFound, "NOT_FOUND", "Role not found")

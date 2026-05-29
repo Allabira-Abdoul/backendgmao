@@ -6,6 +6,7 @@ import (
 
 	"backend-gmao/apps/user-service/internal/application/service"
 	"backend-gmao/apps/user-service/internal/core/domain"
+	"backend-gmao/apps/user-service/internal/core/ports/primary"
 	"backend-gmao/pkg/middleware"
 	"backend-gmao/pkg/response"
 
@@ -15,12 +16,12 @@ import (
 
 // UserHandler handles HTTP requests for user operations.
 type UserHandler struct {
-	service *service.UserService
+	userService primary.UserUseCase
 }
 
 // NewUserHandler creates a new UserHandler.
-func NewUserHandler(service *service.UserService) *UserHandler {
-	return &UserHandler{service: service}
+func NewUserHandler(userService primary.UserUseCase) *UserHandler {
+	return &UserHandler{userService: userService}
 }
 
 // ListUsers handles GET /users
@@ -29,7 +30,7 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 	// Handlers should only orchestrate request data, not validate pagination logic.
 	pagination := response.GetPagination(c, 1, 20)
 
-	users, total, err := h.service.ListUsers(c.Request.Context(), pagination.Limit, pagination.Offset)
+	users, total, err := h.userService.ListUsers(c.Request.Context(), pagination.Limit, pagination.Offset)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list users")
 		return
@@ -70,7 +71,7 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 		}
 	}
 
-	user, err := h.service.GetUserByID(c.Request.Context(), id)
+	user, err := h.userService.GetUserByID(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, service.ErrUserNotFound) {
 			response.Error(c, http.StatusNotFound, "NOT_FOUND", "User not found")
@@ -92,7 +93,7 @@ func (h *UserHandler) GetCurrentUser(c *gin.Context) {
 		return
 	}
 
-	user, err := h.service.GetUserByID(c.Request.Context(), userID)
+	user, err := h.userService.GetUserByID(c.Request.Context(), userID)
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "NOT_FOUND", "User not found")
 		return
@@ -109,7 +110,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	user, err := h.service.CreateUser(c.Request.Context(), req)
+	user, err := h.userService.CreateUser(c.Request.Context(), req)
 	if err != nil {
 		if errors.Is(err, service.ErrEmailExists) {
 			response.Error(c, http.StatusConflict, "EMAIL_EXISTS", err.Error())
@@ -140,7 +141,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	user, err := h.service.UpdateUser(c.Request.Context(), id, req)
+	user, err := h.userService.UpdateUser(c.Request.Context(), id, req)
 	if err != nil {
 		if errors.Is(err, service.ErrUserNotFound) {
 			response.Error(c, http.StatusNotFound, "NOT_FOUND", "User not found")
@@ -169,7 +170,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.DeleteUser(c.Request.Context(), id); err != nil {
+	if err := h.userService.DeleteUser(c.Request.Context(), id); err != nil {
 		if errors.Is(err, service.ErrUserNotFound) {
 			response.Error(c, http.StatusNotFound, "NOT_FOUND", "User not found")
 			return
@@ -189,7 +190,7 @@ func (h *UserHandler) AdminResetPassword(c *gin.Context) {
 		return
 	}
 
-	code, err := h.service.AdminResetPassword(c.Request.Context(), id)
+	code, err := h.userService.AdminResetPassword(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, service.ErrUserNotFound) {
 			response.Error(c, http.StatusNotFound, "NOT_FOUND", "User not found")
@@ -224,7 +225,7 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	err = h.service.ChangePassword(c.Request.Context(), userID, req.NewPassword)
+	err = h.userService.ChangePassword(c.Request.Context(), userID, req.NewPassword)
 	if err != nil {
 		if errors.Is(err, service.ErrUserNotFound) {
 			response.Error(c, http.StatusNotFound, "NOT_FOUND", "User not found")

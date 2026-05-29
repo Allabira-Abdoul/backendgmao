@@ -17,7 +17,7 @@ var (
 	ErrRoleHasUsers      = errors.New("cannot delete a role that is assigned to users")
 )
 
-// RoleService implements the RoleServicePort primary port.
+// RoleService implements the primary.RoleUseCase primary port.
 type RoleService struct {
 	roleRepo secondary.RoleRepository
 	userRepo secondary.UserRepository

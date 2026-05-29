@@ -16,7 +16,7 @@ var (
 	ErrTeamHasUsers      = errors.New("cannot delete a team that is assigned to users")
 )
 
-// TeamService implements the TeamServicePort primary port.
+// TeamService implements the primary.TeamUseCase primary port.
 type TeamService struct {
 	teamRepo secondary.TeamRepository
 	userRepo secondary.UserRepository
