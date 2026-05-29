@@ -2,100 +2,67 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
 	"backend-gmao/apps/auth-service/internal/core/domain"
 	"backend-gmao/apps/auth-service/internal/core/ports/secondary"
-	"backend-gmao/pkg/audit"
 	"backend-gmao/pkg/auth"
-	"backend-gmao/pkg/discovery"
 	"github.com/google/uuid"
 )
 
 var (
 	ErrSessionNotFound = errors.New("session not found")
 	ErrSessionExpired  = errors.New("session has expired")
+	ErrInvalidCredentials = errors.New("invalid email or password")
 )
 
 type AuthService struct {
-	sessionRepo secondary.SessionRepository
-	registry    discovery.Registry
-	jwtManager  *auth.JWTManager
-	auditClient audit.Client
+	sessionRepo  secondary.SessionRepository
+	userProvider secondary.UserProvider
+	eventPub     secondary.EventPublisher
+	jwtManager   *auth.JWTManager
 }
 
 // NewAuthService creates a new authentication service.
 func NewAuthService(
 	sessionRepo secondary.SessionRepository,
-	registry discovery.Registry,
+	userProvider secondary.UserProvider,
+	eventPub secondary.EventPublisher,
 	jwtManager *auth.JWTManager,
-	auditClient audit.Client,
 ) *AuthService {
 	return &AuthService{
-		sessionRepo: sessionRepo,
-		registry:    registry,
-		jwtManager:  jwtManager,
-		auditClient: auditClient,
+		sessionRepo:  sessionRepo,
+		userProvider: userProvider,
+		eventPub:     eventPub,
+		jwtManager:   jwtManager,
 	}
 }
 
 func (s *AuthService) CreateSession(ctx context.Context, req domain.CreateSessionRequest) (*domain.SessionResponse, error) {
-	// 1. Discover user-service via Consul
-	addr, err := s.registry.Discover("user-service")
+	// 1. Fetch user via UserProvider
+	user, err := s.userProvider.FetchUserForAuth(ctx, req.Email)
 	if err != nil {
-		return nil, fmt.Errorf("failed to discover user-service: %w", err)
+		// Event logging could happen here, though we might not have a reliable UserID if they don't exist
+		_ = s.eventPub.PublishAuditLog(ctx, "LOGIN_FAILED", "USER", req.Email, nil, map[string]interface{}{"reason": "invalid credentials"})
+		return nil, ErrInvalidCredentials
 	}
 
-	// 2. Query user-service/internal/by-email
-	client := &http.Client{Timeout: 5 * time.Second}
-	targetURL := fmt.Sprintf("http://%s/internal/by-email?email=%s", addr, url.QueryEscape(req.Email))
-
-	httpReq, err := http.NewRequestWithContext(ctx, "GET", targetURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	httpReq.Header.Set("X-Internal-Service", "auth-service")
-
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to call user-service: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, errors.New("invalid email or password")
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("user-service returned status: %d", resp.StatusCode)
-	}
-
-	var envelope struct {
-		Status string      `json:"status"`
-		Data   domain.User `json:"data"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
-		return nil, fmt.Errorf("failed to decode user response: %w", err)
-	}
-
-	user := envelope.Data
-
-	// 3. Verify user status
+	// 2. Verify user status
 	if user.Status != domain.StatusActive {
+		_ = s.eventPub.PublishAuditLog(ctx, "LOGIN_FAILED", "USER", user.ID.String(), &user.ID, map[string]interface{}{"reason": "account inactive"})
 		return nil, fmt.Errorf("account is %s", strings.ToLower(string(user.Status)))
 	}
 
-	// 4. Verify password
+	// 3. Verify password
 	if !auth.CheckPasswordHash(req.Password, user.Password) {
-		return nil, errors.New("invalid email or password")
+		_ = s.eventPub.PublishAuditLog(ctx, "LOGIN_FAILED", "USER", user.ID.String(), &user.ID, map[string]interface{}{"reason": "invalid password"})
+		return nil, ErrInvalidCredentials
 	}
 
-	// 5. Generate signed JWT access token and refresh token
+	// 4. Generate signed JWT access token and refresh token
 	accessToken, accessExpiredAt, err := s.jwtManager.GenerateAccessToken(
 		user.ID.String(),
 		user.Email,
@@ -112,7 +79,7 @@ func (s *AuthService) CreateSession(ctx context.Context, req domain.CreateSessio
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
-	// 6. Save session in DB
+	// 5. Save session in DB
 	session := &domain.Session{
 		ID:               uuid.New(),
 		UserID:           user.ID,
@@ -127,16 +94,9 @@ func (s *AuthService) CreateSession(ctx context.Context, req domain.CreateSessio
 	}
 
 	// Trigger audit event asynchronously
-	userIDStr := user.ID.String()
 	go func() {
 		bgCtx := context.Background()
-		_ = s.auditClient.LogEvent(bgCtx, audit.AuditEvent{
-			ServiceName: "auth-service",
-			Action:      "USER_LOGIN",
-			Details:     fmt.Sprintf("User %s logged in successfully", user.Email),
-			UserID:      &userIDStr,
-			UserName:    user.FullName,
-		})
+		_ = s.eventPub.PublishAuditLog(bgCtx, "USER_LOGIN", "SESSION", session.ID.String(), &user.ID, nil)
 	}()
 
 	sessionResp := session.ToResponse()
@@ -183,39 +143,16 @@ func (s *AuthService) RefreshSession(ctx context.Context, req domain.RefreshSess
 	// 3. Delete old session to enforce rotation
 	_ = s.sessionRepo.Logout(ctx, req.RefreshToken)
 
-	// 4. Fetch freshest user data
-	addr, err := s.registry.Discover("user-service")
+	// 4. Fetch freshest user data via UserProvider
+	userID, err := uuid.Parse(claims.UserID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to discover user-service: %w", err)
+		return nil, fmt.Errorf("invalid user ID in claims: %w", err)
 	}
-
-	client := &http.Client{Timeout: 5 * time.Second}
-	targetURL := fmt.Sprintf("http://%s/internal/by-id?id=%s", addr, claims.UserID)
-
-	httpReq, err := http.NewRequestWithContext(ctx, "GET", targetURL, nil)
+	
+	user, err := s.userProvider.FetchUserByIDForAuth(ctx, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch fresh user data: %w", err)
 	}
-	httpReq.Header.Set("X-Internal-Service", "auth-service")
-
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to call user-service: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch fresh user data, status: %d", resp.StatusCode)
-	}
-
-	var envelope struct {
-		Status string      `json:"status"`
-		Data   domain.User `json:"data"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
-		return nil, fmt.Errorf("failed to decode user response: %w", err)
-	}
-	user := envelope.Data
 
 	if user.Status != domain.StatusActive {
 		return nil, fmt.Errorf("account is %s", strings.ToLower(string(user.Status)))
@@ -255,4 +192,3 @@ func (s *AuthService) RefreshSession(ctx context.Context, req domain.RefreshSess
 	sessionResp := newSession.ToResponse()
 	return &sessionResp, nil
 }
-
