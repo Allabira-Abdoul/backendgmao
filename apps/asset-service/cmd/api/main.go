@@ -10,13 +10,14 @@ import (
 	"time"
 
 	httphandler "backend-gmao/apps/asset-service/internal/adapters/primary/http"
+	importEventBus "backend-gmao/apps/asset-service/internal/adapters/secondary/eventbus"
 	pgadapter "backend-gmao/apps/asset-service/internal/adapters/secondary/postgres"
 	"backend-gmao/apps/asset-service/internal/application/service"
 	"backend-gmao/apps/asset-service/internal/core/domain"
-	"backend-gmao/pkg/audit"
 	"backend-gmao/pkg/auth"
 	"backend-gmao/pkg/db"
 	"backend-gmao/pkg/discovery"
+	"backend-gmao/pkg/eventbus"
 
 	"github.com/gin-gonic/gin"
 )
@@ -91,10 +92,17 @@ func main() {
 	// --- Repositories (Secondary Adapters) ---
 	assetRepo := pgadapter.NewAssetRepository(database)
 
+	// --- EventBus (RabbitMQ) ---
+	rabbitmqURL := getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+	bus, err := eventbus.NewRabbitMQBus(rabbitmqURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
+	}
+
+	eventPublisher := importEventBus.NewRabbitMQPublisher(bus)
+
 	// --- Application Services ---
-	jwtManagerForInternal := auth.NewJWTManager(jwtSecret, time.Minute*5, time.Minute*5)
-	auditClient := audit.NewClient("asset-service", jwtManagerForInternal)
-	assetService := service.NewAssetService(assetRepo, auditClient)
+	assetService := service.NewAssetService(assetRepo, eventPublisher)
 
 	// --- Register with Consul ---
 	err = registry.Register(serviceID, serviceName, host, port)

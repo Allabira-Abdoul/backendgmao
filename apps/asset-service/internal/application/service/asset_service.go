@@ -6,18 +6,17 @@ import (
 
 	"backend-gmao/apps/asset-service/internal/core/domain"
 	"backend-gmao/apps/asset-service/internal/core/ports/secondary"
-	"backend-gmao/pkg/audit"
 	"github.com/google/uuid"
 )
 
 type assetService struct {
-	repo        secondary.AssetRepository
-	auditClient audit.Client
+	repo           secondary.AssetRepository
+	eventPublisher secondary.EventPublisher
 }
 
 // NewAssetService creates a new Asset Service instance.
-func NewAssetService(repo secondary.AssetRepository, auditClient audit.Client) *assetService {
-	return &assetService{repo: repo, auditClient: auditClient}
+func NewAssetService(repo secondary.AssetRepository, eventPublisher secondary.EventPublisher) *assetService {
+	return &assetService{repo: repo, eventPublisher: eventPublisher}
 }
 
 func (s *assetService) CreateEquipmentModel(ctx context.Context, req domain.CreateEquipmentModelRequest) (domain.EquipmentModelResponse, error) {
@@ -98,6 +97,12 @@ func (s *assetService) CreateEquipmentInstance(ctx context.Context, req domain.C
 		return domain.EquipmentInstanceResponse{}, err
 	}
 
+	// Emit Audit Log (ActorID is typically passed via context, but we can set it to nil for system actions if not present)
+	s.eventPublisher.PublishAuditLog(ctx, "CREATE", "EQUIPMENT_INSTANCE", instance.ID.String(), nil, map[string]interface{}{
+		"code":     instance.Code,
+		"model_id": instance.EquipmentModelID.String(),
+	})
+
 	return instance.ToResponse(), nil
 }
 
@@ -136,6 +141,12 @@ func (s *assetService) CreatePartInstance(ctx context.Context, req domain.Create
 	if err := s.repo.CreatePartInstance(ctx, instance); err != nil {
 		return domain.PartInstanceResponse{}, err
 	}
+
+	s.eventPublisher.PublishAuditLog(ctx, "CREATE", "PART_INSTANCE", instance.ID.String(), nil, map[string]interface{}{
+		"part_model_id":         instance.PartModelID.String(),
+		"equipment_instance_id": eqID,
+		"serial_number":         instance.SerialNumber,
+	})
 
 	return instance.ToResponse(), nil
 }
@@ -196,6 +207,11 @@ func (s *assetService) MovePartInstance(ctx context.Context, partInstanceID uuid
 		return domain.PartInstanceResponse{}, err
 	}
 
+	s.eventPublisher.PublishAuditLog(ctx, "MOVE", "PART_INSTANCE", instance.ID.String(), nil, map[string]interface{}{
+		"new_equipment_instance_id": eqID,
+		"new_location":              req.CurrentLocation,
+	})
+
 	return instance.ToResponse(), nil
 }
 
@@ -232,6 +248,12 @@ func (s *assetService) ConsumePart(ctx context.Context, req domain.ConsumePartRe
 	if err := s.repo.CreatePartConsumptionLog(ctx, log); err != nil {
 		return err
 	}
+
+	s.eventPublisher.PublishAuditLog(ctx, "CONSUME", "PART_MODEL", req.PartModelID.String(), &userID, map[string]interface{}{
+		"quantity_used": req.Quantity,
+		"work_order_id": req.WorkOrderID,
+		"notes":         req.Notes,
+	})
 
 	return nil
 }
