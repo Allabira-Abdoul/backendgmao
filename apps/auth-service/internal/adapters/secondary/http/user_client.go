@@ -56,8 +56,8 @@ func (c *UserClient) FetchUserForAuth(ctx context.Context, email string) (*domai
 	}
 
 	var envelope struct {
-		Status string      `json:"status"`
-		Data   domain.User `json:"data"`
+		Success bool        `json:"success"`
+		Data    domain.User `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
 		return nil, fmt.Errorf("failed to decode user response: %w", err)
@@ -93,8 +93,8 @@ func (c *UserClient) FetchUserByIDForAuth(ctx context.Context, id uuid.UUID) (*d
 	}
 
 	var envelope struct {
-		Status string      `json:"status"`
-		Data   domain.User `json:"data"`
+		Success bool        `json:"success"`
+		Data    domain.User `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
 		return nil, fmt.Errorf("failed to decode user response: %w", err)

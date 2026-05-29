@@ -38,12 +38,28 @@ Registers a new session in the system for a user using their credentials. This e
 }
 ```
 
-#### Failure Response
+#### Failure Responses
 - **Status Code**: `401 Unauthorized`
-- **Body**:
+- **Body** (Invalid credentials):
 ```json
 {
-  "error": "Invalid email or password"
+  "error": "invalid email or password"
+}
+```
+
+- **Status Code**: `401 Unauthorized`
+- **Body** (Inactive Account):
+```json
+{
+  "error": "account is inactive"
+}
+```
+
+- **Status Code**: `401 Unauthorized`
+- **Body** (Must Change Password):
+```json
+{
+  "error": "user must change password before logging in"
 }
 ```
 
@@ -164,3 +180,21 @@ Explicitly terminates a session. Used when a user logs out. You can pass either 
   "error": "Query parameter token is required"
 }
 ```
+
+---
+
+## 📢 Published Events (EventBus)
+
+The `auth-service` asynchronously publishes audit events to the centralized message broker (RabbitMQ) using the `audit.logs` exchange with the `audit.log.auth` routing key.
+
+### `USER_LOGIN`
+Emitted when a user successfully creates a new session (Login).
+- **Action**: `USER_LOGIN`
+- **Resource Type**: `SESSION`
+- **Actor ID**: The authenticated User ID.
+
+### `LOGIN_FAILED`
+Emitted when an authentication attempt is rejected.
+- **Action**: `LOGIN_FAILED`
+- **Resource Type**: `USER`
+- **Changes/Details**: Includes the reason for failure (e.g., `invalid credentials`, `account inactive`, `must change password`).
