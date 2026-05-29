@@ -66,6 +66,13 @@ func main() {
 	); err != nil {
 		log.Fatalf("Failed to migrate Asset tables: %v", err)
 	}
+
+	// --- Partitioned Tables Migration ---
+	log.Println("Running partitioned table migrations...")
+	if err := pgadapter.InitPartitionedTable(database); err != nil {
+		log.Fatalf("Failed to initialize partitioned tables: %v", err)
+	}
+
 	log.Println("Database migrations completed")
 
 	// --- Seed Default Data ---
@@ -91,6 +98,7 @@ func main() {
 
 	// --- Repositories (Secondary Adapters) ---
 	assetRepo := pgadapter.NewAssetRepository(database)
+	measurementRepo := pgadapter.NewMeasurementRepository(database)
 
 	// --- EventBus (RabbitMQ) ---
 	rabbitmqURL := getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
@@ -102,7 +110,7 @@ func main() {
 	eventPublisher := importEventBus.NewRabbitMQPublisher(bus)
 
 	// --- Application Services ---
-	assetService := service.NewAssetService(assetRepo, eventPublisher)
+	assetService := service.NewAssetService(assetRepo, measurementRepo, eventPublisher)
 
 	// --- Register with Consul ---
 	err = registry.Register(serviceID, serviceName, host, port)

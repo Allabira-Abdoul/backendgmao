@@ -93,3 +93,18 @@ func (r *assetRepository) CreatePartConsumptionLog(ctx context.Context, log *dom
 	return r.db.WithContext(ctx).Create(log).Error
 }
 
+func (r *assetRepository) GetMetricThresholds(ctx context.Context, metricName string, eqID *uuid.UUID, partID *uuid.UUID) ([]domain.MetricThreshold, error) {
+	var thresholds []domain.MetricThreshold
+	query := r.db.WithContext(ctx).Where("metric_name = ?", metricName)
+
+	if eqID != nil {
+		query = query.Where("equipment_instance_id = ?", *eqID)
+	}
+	if partID != nil {
+		query = query.Where("part_instance_id = ?", *partID)
+	}
+
+	err := query.Find(&thresholds).Error
+	return thresholds, err
+}
+

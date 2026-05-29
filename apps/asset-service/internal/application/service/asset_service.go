@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
 	"backend-gmao/apps/asset-service/internal/core/domain"
 	"backend-gmao/apps/asset-service/internal/core/ports/secondary"
@@ -11,12 +12,13 @@ import (
 
 type assetService struct {
 	repo           secondary.AssetRepository
+	measurementRepo secondary.MeasurementRepository
 	eventPublisher secondary.EventPublisher
 }
 
 // NewAssetService creates a new Asset Service instance.
-func NewAssetService(repo secondary.AssetRepository, eventPublisher secondary.EventPublisher) *assetService {
-	return &assetService{repo: repo, eventPublisher: eventPublisher}
+func NewAssetService(repo secondary.AssetRepository, measurementRepo secondary.MeasurementRepository, eventPublisher secondary.EventPublisher) *assetService {
+	return &assetService{repo: repo, measurementRepo: measurementRepo, eventPublisher: eventPublisher}
 }
 
 func (s *assetService) CreateEquipmentModel(ctx context.Context, req domain.CreateEquipmentModelRequest) (domain.EquipmentModelResponse, error) {
@@ -257,3 +259,89 @@ func (s *assetService) ConsumePart(ctx context.Context, req domain.ConsumePartRe
 
 	return nil
 }
+
+func (s *assetService) IngestMeasurement(ctx context.Context, req domain.IngestMeasurementRequest, userID *uuid.UUID) (domain.MeasurementResponse, error) {
+	if req.EquipmentInstanceID == nil && req.PartInstanceID == nil {
+		return domain.MeasurementResponse{}, errors.New("must specify either equipment_instance_id or part_instance_id")
+	}
+
+	recordedAt := time.Now()
+	if req.RecordedAt != nil {
+		recordedAt = *req.RecordedAt
+	}
+
+	measurement := &domain.Measurement{
+		ID:                  uuid.New(),
+		EquipmentInstanceID: req.EquipmentInstanceID,
+		PartInstanceID:      req.PartInstanceID,
+		MetricName:          req.MetricName,
+		Value:               req.Value,
+		Unit:                req.Unit,
+		RecordedAt:          recordedAt,
+		RecordedBy:          userID,
+	}
+
+	if err := s.measurementRepo.CreateMeasurement(ctx, measurement); err != nil {
+		return domain.MeasurementResponse{}, err
+	}
+
+	// Fetch Thresholds
+	thresholds, err := s.repo.GetMetricThresholds(ctx, req.MetricName, req.EquipmentInstanceID, req.PartInstanceID)
+	if err == nil && len(thresholds) > 0 {
+		// Evaluate the first matching threshold
+		t := thresholds[0]
+		breached := false
+		reason := ""
+		if t.MinValue != nil && req.Value < *t.MinValue {
+			breached = true
+			reason = "Below minimum threshold"
+		} else if t.MaxValue != nil && req.Value > *t.MaxValue {
+			breached = true
+			reason = "Above maximum threshold"
+		}
+
+		if breached {
+			s.eventPublisher.PublishAuditLog(ctx, "THRESHOLD_ALERT", "MEASUREMENT", measurement.ID.String(), nil, map[string]interface{}{
+				"metric_name": req.MetricName,
+				"value":       req.Value,
+				"reason":      reason,
+			})
+		}
+	}
+
+	return measurement.ToResponse(), nil
+}
+
+func (s *assetService) GetMeasurements(ctx context.Context, targetType string, targetID uuid.UUID, since string) ([]domain.MeasurementResponse, error) {
+	var sinceTime time.Time
+	if since != "" {
+		parsed, err := time.Parse(time.RFC3339, since)
+		if err == nil {
+			sinceTime = parsed
+		}
+	} else {
+		sinceTime = time.Now().AddDate(0, -1, 0) // Default to last 1 month
+	}
+
+	var measurements []domain.Measurement
+	var err error
+
+	if targetType == "equipment" {
+		measurements, err = s.measurementRepo.GetMeasurementsByEquipment(ctx, targetID, sinceTime)
+	} else if targetType == "part" {
+		measurements, err = s.measurementRepo.GetMeasurementsByPart(ctx, targetID, sinceTime)
+	} else {
+		return nil, errors.New("invalid targetType: must be 'equipment' or 'part'")
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]domain.MeasurementResponse, len(measurements))
+	for i, m := range measurements {
+		res[i] = m.ToResponse()
+	}
+	return res, nil
+}
+

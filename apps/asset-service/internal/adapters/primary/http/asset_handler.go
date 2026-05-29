@@ -190,6 +190,53 @@ func (h *AssetHandler) MovePartInstance(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
+// --- Measurements ---
+
+func (h *AssetHandler) IngestMeasurement(c *gin.Context) {
+	var req domain.IngestMeasurementRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var userID *uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		parsed, err := uuid.Parse(userIDStr.(string))
+		if err == nil {
+			userID = &parsed
+		}
+	}
+
+	res, err := h.service.IngestMeasurement(c.Request.Context(), req, userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, res)
+}
+
+func (h *AssetHandler) GetMeasurements(c *gin.Context) {
+	targetType := c.Param("targetType") // "equipment" or "part"
+	targetIDParam := c.Param("targetID")
+
+	targetID, err := uuid.Parse(targetIDParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid target ID"})
+		return
+	}
+
+	since := c.Query("since")
+
+	res, err := h.service.GetMeasurements(c.Request.Context(), targetType, targetID, since)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, res)
+}
+
 // --- Backward compatibility wrapper for old clients ---
 func (h *AssetHandler) GetLegacyAssets(c *gin.Context) {
 	res, err := h.service.GetEquipmentInstances(c.Request.Context())
