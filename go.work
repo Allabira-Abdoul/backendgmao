@@ -1,0 +1,13 @@
+go 1.26.2
+
+use (
+	./apps/analytics-service
+	./apps/api-gateway
+	./apps/asset-service
+	./apps/audit-service
+	./apps/auth-service
+	./apps/maintenance-service
+	./apps/prediction-service
+	./apps/user-service
+	./pkg
+)

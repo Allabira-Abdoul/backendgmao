@@ -1,0 +1,196 @@
+# ============================================================
+# Docker Compose - Local Development
+# Usage: docker compose -f deploy/docker-compose.yml up --build
+# ============================================================
+
+services:
+  # --- Infrastructure ---
+  consul:
+    image: hashicorp/consul:1.20
+    container_name: consul
+    ports:
+      - "8500:8500"
+      - "8600:8600/udp"
+    command: agent -server -bootstrap-expect=1 -ui -client=0.0.0.0
+    networks:
+      - backend-net
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: gmao_user
+      POSTGRES_PASSWORD: gmao_password
+      POSTGRES_DB: gmao_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gmao_user -d gmao_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend-net
+
+  # --- API Gateway ---
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: api-gateway
+    container_name: api-gateway
+    ports:
+      - "9090:8080"
+    environment:
+      PORT: "8080"
+      CONSUL_HOST: consul
+      CONSUL_PORT: "8500"
+      SERVICE_HOST: api-gateway
+    depends_on:
+      - consul
+    restart: on-failure
+    networks:
+      - backend-net
+
+  # --- Microservices ---
+  analytics-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: analytics-service
+    container_name: analytics-service
+    environment:
+      PORT: "8080"
+      CONSUL_HOST: consul
+      CONSUL_PORT: "8500"
+      SERVICE_HOST: analytics-service
+      DATABASE_URL: "host=postgres user=gmao_user password=gmao_password dbname=gmao_db port=5432 sslmode=disable"
+    depends_on:
+      consul:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - backend-net
+
+  authentication-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: authentication-service
+    container_name: authentication-service
+    environment:
+      PORT: "8080"
+      CONSUL_HOST: consul
+      CONSUL_PORT: "8500"
+      SERVICE_HOST: authentication-service
+      DATABASE_URL: "host=postgres user=gmao_user password=gmao_password dbname=gmao_db port=5432 sslmode=disable"
+    depends_on:
+      consul:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - backend-net
+
+  user-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: user-service
+    container_name: user-service
+    environment:
+      PORT: "8080"
+      CONSUL_HOST: consul
+      CONSUL_PORT: "8500"
+      SERVICE_HOST: user-service
+      DATABASE_URL: "host=postgres user=gmao_user password=gmao_password dbname=gmao_db port=5432 sslmode=disable"
+    depends_on:
+      consul:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - backend-net
+
+  asset-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: asset-service
+    container_name: asset-service
+    environment:
+      PORT: "8080"
+      CONSUL_HOST: consul
+      CONSUL_PORT: "8500"
+      SERVICE_HOST: asset-service
+      DATABASE_URL: "host=postgres user=gmao_user password=gmao_password dbname=gmao_db port=5432 sslmode=disable"
+    depends_on:
+      consul:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - backend-net
+
+  prediction-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: prediction-service
+    container_name: prediction-service
+    environment:
+      PORT: "8080"
+      CONSUL_HOST: consul
+      CONSUL_PORT: "8500"
+      SERVICE_HOST: prediction-service
+      DATABASE_URL: "host=postgres user=gmao_user password=gmao_password dbname=gmao_db port=5432 sslmode=disable"
+    depends_on:
+      consul:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - backend-net
+
+  maintenance-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: maintenance-service
+    container_name: maintenance-service
+    environment:
+      PORT: "8080"
+      CONSUL_HOST: consul
+      CONSUL_PORT: "8500"
+      SERVICE_HOST: maintenance-service
+      DATABASE_URL: "host=postgres user=gmao_user password=gmao_password dbname=gmao_db port=5432 sslmode=disable"
+    depends_on:
+      consul:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - backend-net
+
+networks:
+  backend-net:
+    driver: bridge
+
+volumes:
+  pgdata:

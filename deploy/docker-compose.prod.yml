@@ -1,0 +1,193 @@
+# ============================================================
+# Docker Compose - Production (AWS EC2)
+# Images are pre-built and pushed to a container registry.
+# Usage: docker compose -f deploy/docker-compose.prod.yml up -d
+# ============================================================
+
+services:
+  # --- Infrastructure ---
+  consul:
+    image: hashicorp/consul:1.20
+    container_name: consul
+    ports:
+      - "8500:8500"
+      - "8600:8600/udp"
+    command: agent -server -bootstrap-expect=1 -ui -client=0.0.0.0 -bind=0.0.0.0
+    restart: unless-stopped
+    volumes:
+      - consul-data:/consul/data
+    networks:
+      - backend-net
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gmao_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-gmao_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gmao_user} -d ${POSTGRES_DB:-gmao_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - backend-net
+
+  # --- API Gateway ---
+  api-gateway:
+    image: ${DOCKER_REGISTRY}/${DOCKER_IMAGE_PREFIX}-api-gateway:${IMAGE_TAG:-latest}
+    container_name: api-gateway
+    # Removed public port mapping (handled by Nginx)
+    environment:
+      PORT: "8080"
+      CONSUL_HOST: consul
+      CONSUL_PORT: "8500"
+      SERVICE_HOST: api-gateway
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://gmao-frontend.vercel.app,http://localhost:3000,http://localhost:8080}
+    depends_on:
+      - consul
+    restart: unless-stopped
+    networks:
+      - backend-net
+
+  # --- Reverse Proxy (HTTPS with self-signed cert) ---
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx-entrypoint.sh:/docker-entrypoint.sh:ro
+      - ssl-certs:/etc/nginx/ssl
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+    networks:
+      - backend-net
+    entrypoint: ["/bin/sh", "/docker-entrypoint.sh"]
+
+  # --- Microservices ---
+  analytics-service:
+    image: ${DOCKER_REGISTRY}/${DOCKER_IMAGE_PREFIX}-analytics-service:${IMAGE_TAG:-latest}
+    container_name: analytics-service
+    environment:
+      PORT: "8080"
+      CONSUL_HOST: consul
+      CONSUL_PORT: "8500"
+      SERVICE_HOST: analytics-service
+      DATABASE_URL: "host=postgres user=${POSTGRES_USER:-gmao_user} password=${POSTGRES_PASSWORD} dbname=${POSTGRES_DB:-gmao_db} port=5432 sslmode=disable"
+    depends_on:
+      consul:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - backend-net
+
+  authentication-service:
+    image: ${DOCKER_REGISTRY}/${DOCKER_IMAGE_PREFIX}-authentication-service:${IMAGE_TAG:-latest}
+    container_name: authentication-service
+    environment:
+      PORT: "8080"
+      CONSUL_HOST: consul
+      CONSUL_PORT: "8500"
+      SERVICE_HOST: authentication-service
+      DATABASE_URL: "host=postgres user=${POSTGRES_USER:-gmao_user} password=${POSTGRES_PASSWORD} dbname=${POSTGRES_DB:-gmao_db} port=5432 sslmode=disable"
+    depends_on:
+      consul:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - backend-net
+
+  user-service:
+    image: ${DOCKER_REGISTRY}/${DOCKER_IMAGE_PREFIX}-user-service:${IMAGE_TAG:-latest}
+    container_name: user-service
+    environment:
+      PORT: "8080"
+      CONSUL_HOST: consul
+      CONSUL_PORT: "8500"
+      SERVICE_HOST: user-service
+      DATABASE_URL: "host=postgres user=${POSTGRES_USER:-gmao_user} password=${POSTGRES_PASSWORD} dbname=${POSTGRES_DB:-gmao_db} port=5432 sslmode=disable"
+    depends_on:
+      consul:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - backend-net
+
+  asset-service:
+    image: ${DOCKER_REGISTRY}/${DOCKER_IMAGE_PREFIX}-asset-service:${IMAGE_TAG:-latest}
+    container_name: asset-service
+    environment:
+      PORT: "8080"
+      CONSUL_HOST: consul
+      CONSUL_PORT: "8500"
+      SERVICE_HOST: asset-service
+      DATABASE_URL: "host=postgres user=${POSTGRES_USER:-gmao_user} password=${POSTGRES_PASSWORD} dbname=${POSTGRES_DB:-gmao_db} port=5432 sslmode=disable"
+    depends_on:
+      consul:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - backend-net
+
+  prediction-service:
+    image: ${DOCKER_REGISTRY}/${DOCKER_IMAGE_PREFIX}-prediction-service:${IMAGE_TAG:-latest}
+    container_name: prediction-service
+    environment:
+      PORT: "8080"
+      CONSUL_HOST: consul
+      CONSUL_PORT: "8500"
+      SERVICE_HOST: prediction-service
+      DATABASE_URL: "host=postgres user=${POSTGRES_USER:-gmao_user} password=${POSTGRES_PASSWORD} dbname=${POSTGRES_DB:-gmao_db} port=5432 sslmode=disable"
+    depends_on:
+      consul:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - backend-net
+
+  maintenance-service:
+    image: ${DOCKER_REGISTRY}/${DOCKER_IMAGE_PREFIX}-maintenance-service:${IMAGE_TAG:-latest}
+    container_name: maintenance-service
+    environment:
+      PORT: "8080"
+      CONSUL_HOST: consul
+      CONSUL_PORT: "8500"
+      SERVICE_HOST: maintenance-service
+      DATABASE_URL: "host=postgres user=${POSTGRES_USER:-gmao_user} password=${POSTGRES_PASSWORD} dbname=${POSTGRES_DB:-gmao_db} port=5432 sslmode=disable"
+    depends_on:
+      consul:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - backend-net
+
+networks:
+  backend-net:
+    driver: bridge
+
+volumes:
+  pgdata:
+  consul-data:
+  ssl-certs:

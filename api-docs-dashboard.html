@@ -1,0 +1,1861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GMAO Premium Interactive API Explorer</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    /* Styling Tokens */
+    :root {
+      --font-primary: 'Inter', sans-serif;
+      --font-heading: 'Outfit', sans-serif;
+      --font-code: 'Fira Code', monospace;
+      
+      --bg-dark: #09090e;
+      --bg-card: rgba(18, 18, 28, 0.85);
+      --bg-card-hover: rgba(26, 26, 42, 0.95);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(127, 0, 255, 0.2);
+      
+      --primary-gradient: linear-gradient(135deg, #7F00FF, #E100FF);
+      --primary-color: #a155ff;
+      --primary-hover: #b97dff;
+      
+      --text-main: #e2e2ec;
+      --text-muted: #8e8e9f;
+      --text-bright: #ffffff;
+      
+      /* HTTP Methods */
+      --color-get: #00f0ff;
+      --bg-get: rgba(0, 240, 255, 0.12);
+      --color-post: #00ff87;
+      --bg-post: rgba(0, 255, 135, 0.12);
+      --color-put: #ffb800;
+      --bg-put: rgba(ff, b8, 0, 0.12);
+      --color-delete: #ff4757;
+      --bg-delete: rgba(255, 71, 87, 0.12);
+      
+      /* Standard colors */
+      --cyan-neon: #00f0ff;
+      --purple-neon: #d946ef;
+      --emerald-neon: #10b981;
+      --amber-neon: #f59e0b;
+      --rose-neon: #f43f5e;
+      
+      --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Basic Reset */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-primary);
+      overflow-x: hidden;
+      min-height: 100vh;
+      background-image: 
+        radial-gradient(at 10% 20%, rgba(127, 0, 255, 0.05) 0px, transparent 50%),
+        radial-gradient(at 90% 80%, rgba(225, 0, 255, 0.05) 0px, transparent 50%);
+    }
+
+    /* Layout Container */
+    .app-container {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      width: 320px;
+      background: rgba(10, 10, 15, 0.95);
+      border-right: 1px solid var(--border-color);
+      backdrop-filter: blur(20px);
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      position: fixed;
+      height: 100vh;
+      z-index: 100;
+      overflow-y: auto;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem;
+    }
+
+    .brand-logo {
+      width: 42px;
+      height: 42px;
+      background: var(--primary-gradient);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1.25rem;
+      box-shadow: 0 0 20px rgba(127, 0, 255, 0.4);
+    }
+
+    .brand-title h1 {
+      font-family: var(--font-heading);
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: linear-gradient(to right, #ffffff, #a155ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-title span {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      display: block;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .search-box {
+      position: relative;
+    }
+
+    .search-box i {
+      position: absolute;
+      left: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 0.75rem 1rem 0.75rem 2.5rem;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      color: var(--text-bright);
+      font-family: var(--font-primary);
+      font-size: 0.9rem;
+      transition: var(--transition-fast);
+    }
+
+    .search-box input:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 0 15px rgba(127, 0, 255, 0.15);
+    }
+
+    .nav-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+
+    .service-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .service-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.85rem 1rem;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      color: var(--text-muted);
+      font-family: var(--font-primary);
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: left;
+      transition: var(--transition-fast);
+    }
+
+    .service-btn:hover {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-main);
+    }
+
+    .service-btn.active {
+      background: rgba(127, 0, 255, 0.08);
+      border-color: rgba(127, 0, 255, 0.2);
+      color: var(--text-bright);
+    }
+
+    .service-btn.active .service-icon {
+      color: var(--primary-color);
+    }
+
+    .service-btn-content {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .service-icon {
+      font-size: 1.1rem;
+      transition: var(--transition-fast);
+    }
+
+    .service-badge {
+      font-size: 0.75rem;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 8px;
+      border-radius: 20px;
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    .service-btn.active .service-badge {
+      background: var(--primary-gradient);
+      color: white;
+    }
+
+    /* Main Workspace */
+    .main-workspace {
+      margin-left: 320px;
+      flex: 1;
+      padding: 3rem;
+      display: flex;
+      flex-direction: column;
+      gap: 3rem;
+      max-width: 1400px;
+    }
+
+    /* Header Panel */
+    .workspace-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 2rem;
+    }
+
+    .workspace-title-area h2 {
+      font-family: var(--font-heading);
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 0.5rem;
+    }
+
+    .workspace-title-area p {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      max-width: 700px;
+      line-height: 1.6;
+    }
+
+    .meta-pills {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .meta-pill {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      padding: 0.4rem 0.8rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .meta-pill strong {
+      color: var(--text-bright);
+    }
+
+    /* Endpoint Card Grid */
+    .endpoints-container {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .endpoint-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      transition: var(--transition-normal);
+    }
+
+    .endpoint-card:hover {
+      border-color: rgba(127, 0, 255, 0.3);
+      box-shadow: 0 15px 40px rgba(127, 0, 255, 0.08);
+      transform: translateY(-2px);
+    }
+
+    /* Card Header */
+    .endpoint-header {
+      padding: 1.5rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.01);
+      border-bottom: 1px solid var(--border-color);
+      cursor: pointer;
+    }
+
+    .endpoint-identity {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      flex: 1;
+    }
+
+    .method-badge {
+      font-family: var(--font-heading);
+      font-weight: 800;
+      font-size: 0.9rem;
+      padding: 0.4rem 1.2rem;
+      border-radius: 8px;
+      letter-spacing: 0.5px;
+      text-align: center;
+      min-width: 90px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    .method-badge.get {
+      color: var(--color-get);
+      background: var(--bg-get);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+    }
+
+    .method-badge.post {
+      color: var(--color-post);
+      background: var(--bg-post);
+      border: 1px solid rgba(0, 255, 135, 0.2);
+    }
+
+    .method-badge.put {
+      color: var(--color-put);
+      background: var(--bg-put);
+      border: 1px solid rgba(255, 184, 0, 0.2);
+    }
+
+    .method-badge.delete {
+      color: var(--color-delete);
+      background: var(--bg-delete);
+      border: 1px solid rgba(255, 71, 87, 0.2);
+    }
+
+    .path-text {
+      font-family: var(--font-code);
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-bright);
+    }
+
+    .endpoint-summary {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-left: 2rem;
+      flex: 1;
+      max-width: 500px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .endpoint-meta-badges {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .access-badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .access-badge.public {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--emerald-neon);
+      border: 1px solid rgba(16, 185, 129, 0.15);
+    }
+
+    .access-badge.auth {
+      background: rgba(161, 85, 255, 0.1);
+      color: var(--primary-color);
+      border: 1px solid rgba(161, 85, 255, 0.15);
+    }
+
+    .access-badge.internal {
+      background: rgba(245, 158, 11, 0.1);
+      color: var(--amber-neon);
+      border: 1px solid rgba(245, 158, 11, 0.15);
+    }
+
+    .privilege-pill {
+      font-family: var(--font-code);
+      font-size: 0.75rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      padding: 3px 8px;
+      border-radius: 6px;
+      color: var(--cyan-neon);
+      font-weight: 500;
+    }
+
+    .chevron-icon {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      transition: var(--transition-normal);
+      margin-left: 1rem;
+    }
+
+    .endpoint-card.expanded .chevron-icon {
+      transform: rotate(180deg);
+      color: var(--primary-color);
+    }
+
+    /* Card Details Panel */
+    .endpoint-details {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height var(--transition-normal) ease-out;
+      background: rgba(0, 0, 0, 0.1);
+    }
+
+    .endpoint-card.expanded .endpoint-details {
+      max-height: 2500px; /* High value to allow full expansion */
+      transition: max-height var(--transition-normal) ease-in;
+    }
+
+    .details-content {
+      padding: 2.5rem;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      gap: 2.5rem;
+    }
+
+    .section-title {
+      font-family: var(--font-heading);
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .section-title i {
+      color: var(--primary-color);
+    }
+
+    /* Tables */
+    .param-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      margin-top: 0.5rem;
+    }
+
+    .param-table th, .param-table td {
+      padding: 1rem;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.95rem;
+    }
+
+    .param-table th {
+      color: var(--text-bright);
+      font-weight: 600;
+      font-family: var(--font-heading);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .param-name {
+      font-family: var(--font-code);
+      font-weight: 600;
+      color: var(--cyan-neon);
+    }
+
+    .param-type {
+      font-family: var(--font-code);
+      font-size: 0.85rem;
+      color: var(--purple-neon);
+    }
+
+    .param-req {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .param-req.yes {
+      background: rgba(244, 63, 94, 0.1);
+      color: var(--rose-neon);
+    }
+
+    .param-req.no {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+    }
+
+    /* Request/Response Visualizer Split */
+    .payload-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+
+    .payload-panel {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .code-header {
+      background: rgba(14, 14, 22, 0.95);
+      border: 1px solid var(--border-color);
+      border-bottom: none;
+      border-radius: 12px 12px 0 0;
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .code-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .code-label span {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      color: var(--text-main);
+    }
+
+    .copy-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.9rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
+      transition: var(--transition-fast);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .copy-btn:hover {
+      color: var(--text-bright);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .copy-btn.success {
+      color: var(--color-post);
+    }
+
+    .code-editor-container {
+      position: relative;
+      flex: 1;
+    }
+
+    .code-block {
+      background: #0d0d15;
+      border: 1px solid var(--border-color);
+      border-radius: 0 0 12px 12px;
+      padding: 1.5rem;
+      overflow-x: auto;
+      font-family: var(--font-code);
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: #76d0ff;
+      margin-top: 0;
+      max-height: 400px;
+    }
+
+    /* JSON highlighting classes (simulated) */
+    .json-key { color: #ff85b3; }
+    .json-string { color: #b5f2b8; }
+    .json-number { color: #ffca85; }
+    .json-boolean { color: #dd9aff; }
+    .json-null { color: #8e8e9f; }
+
+    /* Try It Out Playground */
+    .playground-section {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 2rem;
+    }
+
+    .playground-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .form-group label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-bright);
+      font-family: var(--font-primary);
+      font-size: 0.9rem;
+      transition: var(--transition-fast);
+    }
+
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      outline: none;
+      border-color: var(--primary-color);
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      font-family: var(--font-code);
+      min-height: 120px;
+    }
+
+    .playground-btn {
+      align-self: flex-start;
+      background: var(--primary-gradient);
+      border: none;
+      color: white;
+      padding: 0.85rem 1.75rem;
+      border-radius: 10px;
+      font-family: var(--font-heading);
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      box-shadow: 0 4px 15px rgba(127, 0, 255, 0.3);
+      transition: var(--transition-fast);
+    }
+
+    .playground-btn:hover {
+      box-shadow: 0 6px 20px rgba(127, 0, 255, 0.5);
+      transform: translateY(-1px);
+    }
+
+    /* Tab switcher for playground code */
+    .tab-bar {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 1rem;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: var(--transition-fast);
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+    }
+
+    .tab-btn.active {
+      color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+
+    /* Empty state search */
+    .empty-state {
+      padding: 5rem 2rem;
+      text-align: center;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .empty-state i {
+      font-size: 4rem;
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .empty-state h3 {
+      font-family: var(--font-heading);
+      font-size: 1.5rem;
+      color: var(--text-bright);
+    }
+
+    .empty-state p {
+      color: var(--text-muted);
+      max-width: 400px;
+      line-height: 1.5;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.1);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Footer styling */
+    footer {
+      border-top: 1px solid var(--border-color);
+      padding: 2rem 0;
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 4rem;
+    }
+
+    footer a {
+      color: var(--primary-color);
+      text-decoration: none;
+      transition: var(--transition-fast);
+    }
+
+    footer a:hover {
+      color: var(--primary-hover);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo">
+          <i class="fa-solid fa-gears"></i>
+        </div>
+        <div class="brand-title">
+          <h1>GMAO Core</h1>
+          <span>Developer Hub</span>
+        </div>
+      </div>
+
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" id="global-search" placeholder="Filter endpoints...">
+      </div>
+
+      <nav>
+        <span class="nav-label">Microservices</span>
+        <div class="service-list" id="service-list-nav">
+          <!-- Dynamically populated -->
+        </div>
+      </nav>
+    </aside>
+
+    <!-- Main Workspace Area -->
+    <main class="main-workspace">
+      
+      <!-- Workspace Header -->
+      <section class="workspace-header">
+        <div class="workspace-title-area">
+          <h2 id="service-name-title">Authentication Service</h2>
+          <p id="service-description-text">Manages user login, session generation, verification, and revocation across the platform.</p>
+          
+          <div class="meta-pills">
+            <div class="meta-pill">
+              <i class="fa-solid fa-server"></i> Dynamic Route Suffix: <strong id="service-suffix-pill">/api/authentication</strong>
+            </div>
+            <div class="meta-pill">
+              <i class="fa-solid fa-network-wired"></i> Consul Service: <strong id="service-consul-pill">authentication-service</strong>
+            </div>
+            <div class="meta-pill">
+              <i class="fa-solid fa-plug"></i> Default Port: <strong id="service-port-pill">8081</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Active Endpoints Container -->
+      <section class="endpoints-container" id="endpoints-grid">
+        <!-- Dynamically populated -->
+      </section>
+
+      <!-- Footer -->
+      <footer>
+        <div>GMAO Secure Microservices Architecture &copy; 2026. Made with premium engineering principles.</div>
+        <div>
+          <a href="./API_DOCUMENTATION.md" target="_blank"><i class="fa-solid fa-file-lines"></i> View Master Specs Markdown</a>
+        </div>
+      </footer>
+
+    </main>
+
+  </div>
+
+  <!-- API Documentation Dataset -->
+  <script>
+    const SERVICES_DATA = {
+      "gateway": {
+        name: "API Gateway",
+        description: "Serves as the high-throughput primary entry point (port :8080) for all external clients, handling request routing, dynamic discovery, rate limiting, and CORS headers.",
+        suffix: "/*",
+        consul: "api-gateway",
+        port: "8080",
+        icon: "fa-solid fa-route",
+        endpoints: [
+          {
+            method: "GET",
+            path: "/health",
+            description: "Gateway health validation endpoint.",
+            access: "public",
+            privilege: "None",
+            params: [],
+            requestBody: null,
+            responseSuccess: {
+              status: "success",
+              message: "Gateway fully operational"
+            }
+          }
+        ]
+      },
+      "auth": {
+        name: "Authentication Service",
+        description: "Secures downstream services by acting as the central authorization issuer, verifying logins, and managing tokens/sessions.",
+        suffix: "/api/authentication",
+        consul: "authentication-service",
+        port: "8081",
+        icon: "fa-solid fa-key",
+        endpoints: [
+          {
+            method: "POST",
+            path: "/sessions",
+            description: "Create a session (Login). Issues high-entropy bearer access and refresh JWTs.",
+            access: "public",
+            privilege: "None",
+            params: [],
+            requestBody: {
+              email: "operator@gmao.local",
+              password: "SuperSecurePassword123"
+            },
+            responseSuccess: {
+              status: "success",
+              data: {
+                access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                expires_in: 900
+              }
+            },
+            responseError: {
+              status: "error",
+              error: {
+                code: "UNAUTHORIZED",
+                message: "Invalid email or password credentials"
+              }
+            }
+          },
+          {
+            method: "POST",
+            path: "/sessions/validate",
+            description: "Validate active access token and output decapsulated session properties.",
+            access: "public",
+            privilege: "None",
+            params: [],
+            requestBody: {
+              token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            },
+            responseSuccess: {
+              status: "success",
+              data: {
+                session_id: "7ca9da22-e421-4fba-bb89-11c9d9d3000b",
+                user_id: "8fa1ad78-831e-4cb8-8c10-9bd74130be52",
+                role: "TECHNICIAN",
+                privileges: ["ASSET_VIEW", "WORKORDER_VIEW", "WORKORDER_UPDATE"]
+              }
+            }
+          },
+          {
+            method: "DELETE",
+            path: "/sessions",
+            description: "Revokes the active refresh token and terminates the active session (Logout).",
+            access: "auth",
+            privilege: "None",
+            params: [],
+            requestBody: {
+              refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            },
+            responseSuccess: {
+              status: "success",
+              message: "Session terminated successfully"
+            }
+          }
+        ]
+      },
+      "user": {
+        name: "User & RBAC Service",
+        description: "Manages all technician, auditor, and operator credentials, role-mapping, team organizations, and capability permissions lists.",
+        suffix: "/api/user",
+        consul: "user-service",
+        port: "8082",
+        icon: "fa-solid fa-users-gear",
+        endpoints: [
+          {
+            method: "GET",
+            path: "/users",
+            description: "Retrieve a paginated grid of registered system users.",
+            access: "auth",
+            privilege: "USER_VIEW",
+            params: [
+              { name: "page", type: "integer", required: false, desc: "Page index offset (default: 1)" },
+              { name: "limit", type: "integer", required: false, desc: "Items count limit (default: 20)" }
+            ],
+            requestBody: null,
+            responseSuccess: {
+              status: "success",
+              data: [
+                {
+                  id: "8fa1ad78-831e-4cb8-8c10-9bd74130be52",
+                  name: "Abdou",
+                  email: "abdou@gmao.local",
+                  role: "ADMINISTRATOR",
+                  active: true
+                }
+              ],
+              meta: { page: 1, per_page: 20, total: 1 }
+            }
+          },
+          {
+            method: "POST",
+            path: "/users",
+            description: "Register a new user profile inside the organization database.",
+            access: "auth",
+            privilege: "USER_CREATE",
+            params: [],
+            requestBody: {
+              name: "John Doe",
+              email: "john@gmao.local",
+              password: "SecureTempPassword123!",
+              role_id: "da63db24-f719-482a-a9bd-8311d9d93bb2"
+            },
+            responseSuccess: {
+              status: "success",
+              data: {
+                id: "2fa9da22-e421-4fba-bb89-11c9d9d300cc",
+                name: "John Doe",
+                email: "john@gmao.local",
+                role_id: "da63db24-f719-482a-a9bd-8311d9d93bb2",
+                created_at: "2026-05-19T12:00:00Z"
+              }
+            },
+            responseError: {
+              status: "error",
+              error: {
+                code: "EMAIL_EXISTS",
+                message: "The email address has already been registered."
+              }
+            }
+          },
+          {
+            method: "POST",
+            path: "/users/:id/role",
+            description: "Update the dynamic role mappings of a specific user.",
+            access: "auth",
+            privilege: "USER_ASSIGN_ROLE",
+            params: [
+              { name: "id", type: "uuid", required: true, desc: "The unique ID of the target user." }
+            ],
+            requestBody: {
+              role_id: "da63db24-f719-482a-a9bd-8311d9d93bb2"
+            },
+            responseSuccess: {
+              status: "success",
+              message: "Role updated successfully"
+            }
+          },
+          {
+            method: "GET",
+            path: "/roles",
+            description: "List all dynamic security roles and their granular system privileges.",
+            access: "auth",
+            privilege: "ROLE_VIEW",
+            params: [],
+            requestBody: null,
+            responseSuccess: {
+              status: "success",
+              data: [
+                {
+                  id: "da63db24-f719-482a-a9bd-8311d9d93bb2",
+                  name: "TECHNICIAN",
+                  privileges: ["ASSET_VIEW", "WORKORDER_VIEW", "WORKORDER_UPDATE", "MAINTENANCE_SCHEDULE"]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "asset": {
+        name: "Asset Service",
+        description: "Maintains industrial assets catalogs, equipment conditions, categories, locations, and sensor wear metrics.",
+        suffix: "/api/asset",
+        consul: "asset-service",
+        port: "8083",
+        icon: "fa-solid fa-industry",
+        endpoints: [
+          {
+            method: "GET",
+            path: "/assets",
+            description: "List, query, and search all physical plant machinery assets.",
+            access: "auth",
+            privilege: "ASSET_VIEW",
+            params: [
+              { name: "code", type: "string", required: false, desc: "Search asset by unique serial code" },
+              { name: "category", type: "string", required: false, desc: "Filter by machinery category tag" }
+            ],
+            requestBody: null,
+            responseSuccess: {
+              status: "success",
+              data: [
+                {
+                  id: "cf63db24-f719-482a-a9bd-8311d9d93ee4",
+                  name: "CNC Milling Machine V3",
+                  code: "CNC-04",
+                  category: "Machining",
+                  status: "OPERATIONAL",
+                  last_inspection: "2026-05-10T08:00:00Z"
+                }
+              ]
+            }
+          },
+          {
+            method: "POST",
+            path: "/assets",
+            description: "Create a new physical asset category slot inside the database ledger.",
+            access: "auth",
+            privilege: "ASSET_CREATE",
+            params: [],
+            requestBody: {
+              name: "Hydraulic Pump Unit H500",
+              code: "HYD-P500",
+              category: "Hydraulics",
+              status: "OPERATIONAL"
+            },
+            responseSuccess: {
+              status: "success",
+              data: {
+                id: "87c9da22-e421-4fba-bb89-11c9d9d300ab",
+                name: "Hydraulic Pump Unit H500",
+                code: "HYD-P500",
+                category: "Hydraulics",
+                status: "OPERATIONAL",
+                created_at: "2026-05-19T12:00:00Z"
+              }
+            }
+          },
+          {
+            method: "PUT",
+            path: "/assets/:id",
+            description: "Alter operational status parameters or health conditions of an existing asset.",
+            access: "auth",
+            privilege: "ASSET_UPDATE",
+            params: [
+              { name: "id", type: "uuid", required: true, desc: "Unique physical ID of the machinery" }
+            ],
+            requestBody: {
+              status: "DOWN",
+              condition_notes: "Severe main bearing vibration detected during shift 2"
+            },
+            responseSuccess: {
+              status: "success",
+              message: "Asset updated successfully"
+            }
+          }
+        ]
+      },
+      "maintenance": {
+        name: "Maintenance Service",
+        description: "Manages preventive and corrective Work Orders, technician scheduling, and operational logs.",
+        suffix: "/api/maintenance",
+        consul: "maintenance-service",
+        port: "8084",
+        icon: "fa-solid fa-screwdriver-wrench",
+        endpoints: [
+          {
+            method: "GET",
+            path: "/workorders",
+            description: "Retrieve all maintenance work orders currently tracked in the system.",
+            access: "auth",
+            privilege: "WORKORDER_VIEW",
+            params: [
+              { name: "status", type: "string", required: false, desc: "Filter by status: OPEN, ASSIGNED, CLOSED" }
+            ],
+            requestBody: null,
+            responseSuccess: {
+              status: "success",
+              data: [
+                {
+                  id: "98b50e2d-dc99-43ef-b387-052637738f61",
+                  title: "Fix Bearing Vibration",
+                  asset_id: "cf63db24-f719-482a-a9bd-8311d9d93ee4",
+                  priority: "CRITICAL",
+                  status: "ASSIGNED",
+                  assigned_technician_id: "8fa1ad78-831e-4cb8-8c10-9bd74130be52"
+                }
+              ]
+            }
+          },
+          {
+            method: "POST",
+            path: "/workorders",
+            description: "Issue a new preventive or corrective work order request.",
+            access: "auth",
+            privilege: "WORKORDER_CREATE",
+            params: [],
+            requestBody: {
+              title: "Replace Seal Rings CNC-04",
+              description: "Preventive maintenance scheduling based on manufacturer runtime recommendation.",
+              asset_id: "cf63db24-f719-482a-a9bd-8311d9d93ee4",
+              priority: "MEDIUM"
+            },
+            responseSuccess: {
+              status: "success",
+              data: {
+                id: "5fa9da22-e421-4fba-bb89-11c9d9d30077",
+                title: "Replace Seal Rings CNC-04",
+                priority: "MEDIUM",
+                status: "OPEN",
+                created_at: "2026-05-19T12:00:00Z"
+              }
+            }
+          },
+          {
+            method: "POST",
+            path: "/workorders/:id/assign",
+            description: "Assign a target technician to handle a specific maintenance task.",
+            access: "auth",
+            privilege: "WORKORDER_ASSIGN",
+            params: [
+              { name: "id", type: "uuid", required: true, desc: "The ID of the target work order." }
+            ],
+            requestBody: {
+              technician_id: "8fa1ad78-831e-4cb8-8c10-9bd74130be52"
+            },
+            responseSuccess: {
+              status: "success",
+              message: "Work order successfully assigned to technician"
+            }
+          }
+        ]
+      },
+      "prediction": {
+        name: "Prediction Service",
+        description: "Executes ML models predicting failures based on sensor historical breakdowns, operational metrics, and temperature anomalies.",
+        suffix: "/api/prediction",
+        consul: "prediction-service",
+        port: "8085",
+        icon: "fa-solid fa-brain",
+        endpoints: [
+          {
+            method: "GET",
+            path: "/predictions",
+            description: "Retrieve all computed historical failure predictions logs.",
+            access: "auth",
+            privilege: "PREDICTION_VIEW",
+            params: [],
+            requestBody: null,
+            responseSuccess: {
+              status: "success",
+              data: [
+                {
+                  id: "3b09db24-f719-482a-a9bd-8311d9d93bb1",
+                  asset_id: "cf63db24-f719-482a-a9bd-8311d9d93ee4",
+                  failure_probability: 84.5,
+                  predicted_failure_date: "2026-06-15T00:00:00Z",
+                  created_at: "2026-05-19T10:15:00Z"
+                }
+              ]
+            }
+          },
+          {
+            method: "GET",
+            path: "/predictions/asset/:assetId",
+            description: "Retrieve failure probability recordings corresponding to a single asset.",
+            access: "auth",
+            privilege: "PREDICTION_VIEW",
+            params: [
+              { name: "assetId", type: "uuid", required: true, desc: "Target unique Asset UUID" }
+            ],
+            requestBody: null,
+            responseSuccess: {
+              status: "success",
+              data: [
+                {
+                  id: "3b09db24-f719-482a-a9bd-8311d9d93bb1",
+                  asset_id: "cf63db24-f719-482a-a9bd-8311d9d93ee4",
+                  failure_probability: 84.5,
+                  predicted_failure_date: "2026-06-15T00:00:00Z",
+                  created_at: "2026-05-19T10:15:00Z"
+                }
+              ]
+            }
+          },
+          {
+            method: "POST",
+            path: "/predictions",
+            description: "Record a new predictive health reading from an external machine learning processor.",
+            access: "auth",
+            privilege: "PREDICTION_CREATE",
+            params: [],
+            requestBody: {
+              asset_id: "cf63db24-f719-482a-a9bd-8311d9d93ee4",
+              failure_probability: 84.50,
+              predicted_failure_date: "2026-06-15T00:00:00Z"
+            },
+            responseSuccess: {
+              status: "success",
+              data: {
+                id: "3b09db24-f719-482a-a9bd-8311d9d93bb1",
+                asset_id: "cf63db24-f719-482a-a9bd-8311d9d93ee4",
+                failure_probability: 84.50,
+                predicted_failure_date: "2026-06-15T00:00:00Z",
+                created_at: "2026-05-19T12:00:00Z"
+              }
+            }
+          }
+        ]
+      },
+      "analytics": {
+        name: "Analytics Service",
+        description: "Centralized aggregator for tracking KPIs, equipment downtimes, mean time to failure, and general business matrices.",
+        suffix: "/api/analytics",
+        consul: "analytics-service",
+        port: "8086",
+        icon: "fa-solid fa-chart-line",
+        endpoints: [
+          {
+            method: "GET",
+            path: "/metrics",
+            description: "List all logged system KPIs and performance metrics.",
+            access: "auth",
+            privilege: "ANALYTICS_VIEW",
+            params: [],
+            requestBody: null,
+            responseSuccess: {
+              status: "success",
+              data: [
+                {
+                  id: "e44d5c41-862d-45df-bb78-ecb18360d8ef",
+                  name: "cpu_utilization",
+                  value: 45.2,
+                  category: "system_performance",
+                  timestamp: "2026-05-19T11:45:00Z"
+                }
+              ]
+            }
+          },
+          {
+            method: "GET",
+            path: "/metrics/category/:category",
+            description: "Query aggregated health records filtered by specific domain category.",
+            access: "auth",
+            privilege: "ANALYTICS_VIEW",
+            params: [
+              { name: "category", type: "string", required: true, desc: "Target category tag (e.g. system_performance, maintenance_kpi)" }
+            ],
+            requestBody: null,
+            responseSuccess: {
+              status: "success",
+              data: [
+                {
+                  id: "e44d5c41-862d-45df-bb78-ecb18360d8ef",
+                  name: "cpu_utilization",
+                  value: 45.2,
+                  category: "system_performance",
+                  timestamp: "2026-05-19T11:45:00Z"
+                }
+              ]
+            }
+          },
+          {
+            method: "POST",
+            path: "/metrics",
+            description: "Record a new metric performance data point.",
+            access: "auth",
+            privilege: "ANALYTICS_WRITE",
+            params: [],
+            requestBody: {
+              name: "mttr_hours",
+              value: 4.5,
+              category: "maintenance_kpi"
+            },
+            responseSuccess: {
+              status: "success",
+              data: {
+                id: "7ca9da22-e421-4fba-bb89-11c9d9d3000b",
+                name: "mttr_hours",
+                value: 4.5,
+                category: "maintenance_kpi",
+                timestamp: "2026-05-19T12:00:00Z"
+              }
+            }
+          }
+        ]
+      },
+      "audit": {
+        name: "Audit Service",
+        description: "Enforces a Write-Once Read-Many (WORM) tamper-proof logging environment of all organizational events.",
+        suffix: "/api/audit",
+        consul: "audit-service",
+        port: "8087",
+        icon: "fa-solid fa-shield-halved",
+        endpoints: [
+          {
+            method: "GET",
+            path: "/audit-logs",
+            description: "Inspect chronological recorded logs. Strictly requires dedicated dynamic Auditor Privilege.",
+            access: "auth",
+            privilege: "AUDITOR",
+            params: [],
+            requestBody: null,
+            responseSuccess: {
+              status: "success",
+              data: [
+                {
+                  id: "e44d5c41-862d-45df-bb78-ecb18360d8ef",
+                  service_name: "user-service",
+                  action: "USER_CREATE",
+                  details: "Registered new technician abdou@gmao.local with role TECHNICIAN",
+                  user_id: "8fa1ad78-831e-4cb8-8c10-9bd74130be52",
+                  performed_at: "2026-05-19T11:45:00Z"
+                }
+              ]
+            }
+          },
+          {
+            method: "POST",
+            path: "/internal/audit-logs",
+            description: "Secure inter-service log submission (accessible ONLY by other backend microservices internally).",
+            access: "internal",
+            privilege: "None (Internal Node Trusted Security)",
+            params: [],
+            requestBody: {
+              service_name: "asset-service",
+              action: "ASSET_CREATE",
+              details: "Created asset CNC Milling Machine (Code: CNC-04)",
+              user_id: "8fa1ad78-831e-4cb8-8c10-9bd74130be52"
+            },
+            responseSuccess: {
+              status: "success",
+              data: {
+                id: "cf63db24-f719-482a-a9bd-8311d9d93ee4",
+                service_name: "asset-service",
+                action: "ASSET_CREATE",
+                details: "Created asset CNC Milling Machine (Code: CNC-04)",
+                user_id: "8fa1ad78-831e-4cb8-8c10-9bd74130be52",
+                performed_at: "2026-05-19T12:05:00Z"
+              }
+            }
+          }
+        ]
+      }
+    };
+
+    let activeServiceKey = "auth";
+
+    // Initialize UI on page load
+    window.addEventListener("DOMContentLoaded", () => {
+      renderServiceNav();
+      selectService(activeServiceKey);
+      
+      // Global Search Listener
+      document.getElementById("global-search").addEventListener("input", (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        renderEndpoints(query);
+      });
+    });
+
+    // Populate Sidebar microservices items list
+    function renderServiceNav() {
+      const navContainer = document.getElementById("service-list-nav");
+      navContainer.innerHTML = "";
+      
+      Object.keys(SERVICES_DATA).forEach(key => {
+        const service = SERVICES_DATA[key];
+        const count = service.endpoints.length;
+        
+        const btn = document.createElement("button");
+        btn.className = `service-btn ${key === activeServiceKey ? 'active' : ''}`;
+        btn.onclick = () => selectService(key);
+        btn.setAttribute("id", `nav-btn-${key}`);
+        
+        btn.innerHTML = `
+          <div class="service-btn-content">
+            <i class="${service.icon} service-icon"></i>
+            <span>${service.name}</span>
+          </div>
+          <span class="service-badge">${count}</span>
+        `;
+        navContainer.appendChild(btn);
+      });
+    }
+
+    // Handle Service Switch
+    function selectService(key) {
+      // Deactivate old active buttons
+      const previousActive = document.querySelector(".service-btn.active");
+      if (previousActive) previousActive.classList.remove("active");
+      
+      // Set new active button
+      activeServiceKey = key;
+      const targetBtn = document.getElementById(`nav-btn-${key}`);
+      if (targetBtn) targetBtn.classList.add("active");
+      
+      const service = SERVICES_DATA[key];
+      
+      // Update header details
+      document.getElementById("service-name-title").innerText = service.name;
+      document.getElementById("service-description-text").innerText = service.description;
+      document.getElementById("service-suffix-pill").innerText = service.suffix;
+      document.getElementById("service-consul-pill").innerText = service.consul;
+      document.getElementById("service-port-pill").innerText = service.port;
+      
+      // Render the endpoints
+      renderEndpoints();
+    }
+
+    // Generate syntax highlighted JSON string
+    function formatJSON(obj) {
+      if (!obj) return "";
+      const jsonStr = JSON.stringify(obj, null, 2);
+      
+      // Basic styling replacement
+      return jsonStr.replace(/("(\\u[a-zA-Z0-8]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g, function (match) {
+        let cls = 'json-number';
+        if (/^"/.test(match)) {
+          if (/:$/.test(match)) {
+            cls = 'json-key';
+          } else {
+            cls = 'json-string';
+          }
+        } else if (/true|false/.test(match)) {
+          cls = 'json-boolean';
+        } else if (/null/.test(match)) {
+          cls = 'json-null';
+        }
+        return '<span class="' + cls + '">' + match + '</span>';
+      });
+    }
+
+    // Copy Content to clipboard with transition effect
+    function copyText(id, text) {
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById(id);
+        const originalContent = btn.innerHTML;
+        btn.innerHTML = `<i class="fa-solid fa-check"></i> Copied`;
+        btn.classList.add("success");
+        setTimeout(() => {
+          btn.innerHTML = originalContent;
+          btn.classList.remove("success");
+        }, 1500);
+      });
+    }
+
+    // Toggle Endpoint Cards Accordion
+    function toggleCard(cardElement) {
+      const isExpanded = cardElement.classList.contains("expanded");
+      
+      // Close all other expanded cards first for clean UI
+      document.querySelectorAll(".endpoint-card.expanded").forEach(c => {
+        c.classList.remove("expanded");
+      });
+      
+      if (!isExpanded) {
+        cardElement.classList.add("expanded");
+      }
+    }
+
+    // Generate dynamic CURL command based on playground fields
+    function updatePlaygroundCode(index) {
+      const endpoint = SERVICES_DATA[activeServiceKey].endpoints[index];
+      const service = SERVICES_DATA[activeServiceKey];
+      
+      // Grab user custom overrides
+      const customToken = document.getElementById(`pg-token-${index}`)?.value || "YOUR_ACCESS_TOKEN";
+      const customBody = document.getElementById(`pg-body-${index}`)?.value || "";
+      
+      // Gather path variables replacement
+      let finalPath = endpoint.path;
+      endpoint.params.forEach(p => {
+        if (p.type === "uuid" || p.name === "id" || p.name === "category" || p.name === "assetId") {
+          const inputVal = document.getElementById(`pg-param-${index}-${p.name}`)?.value;
+          if (inputVal) {
+            finalPath = finalPath.replace(`:${p.name}`, inputVal);
+          }
+        }
+      });
+      
+      // Gather query variables
+      let queryParams = [];
+      endpoint.params.forEach(p => {
+        if (p.type === "integer" || (p.type === "string" && p.name !== "category")) {
+          const inputVal = document.getElementById(`pg-param-${index}-${p.name}`)?.value;
+          if (inputVal) {
+            queryParams.push(`${p.name}=${encodeURIComponent(inputVal)}`);
+          }
+        }
+      });
+      
+      if (queryParams.length > 0) {
+        finalPath += "?" + queryParams.join("&");
+      }
+
+      const activeTab = document.querySelector(`.playground-container-${index} .tab-btn.active`)?.dataset.lang || 'curl';
+      const codeOutputEl = document.getElementById(`playground-code-${index}`);
+      
+      const fullUrl = `http://localhost:8080${service.suffix}${finalPath}`;
+      let codeContent = "";
+
+      if (activeTab === 'curl') {
+        codeContent = `curl -X ${endpoint.method} "${fullUrl}" \\\n`;
+        if (endpoint.access === 'auth') {
+          codeContent += `  -H "Authorization: Bearer ${customToken}" \\\n`;
+        } else if (endpoint.access === 'internal') {
+          codeContent += `  -H "X-Internal-Service: INTERNAL_SECRET_TOKEN" \\\n`;
+        }
+        
+        if (endpoint.method !== 'GET' && customBody) {
+          codeContent += `  -H "Content-Type: application/json" \\\n`;
+          codeContent += `  -d '${customBody.replace(/\n\s*/g, '')}'`;
+        } else {
+          // Remove trailing backslash
+          codeContent = codeContent.trim().replace(/\\$/, "");
+        }
+      } else if (activeTab === 'fetch') {
+        const headersObj = {};
+        if (endpoint.access === 'auth') headersObj["Authorization"] = `Bearer ${customToken}`;
+        else if (endpoint.access === 'internal') headersObj["X-Internal-Service"] = "INTERNAL_SECRET_TOKEN";
+        
+        if (endpoint.method !== 'GET') headersObj["Content-Type"] = "application/json";
+
+        codeContent = `fetch("${fullUrl}", {\n`;
+        codeContent += `  method: "${endpoint.method}",\n`;
+        codeContent += `  headers: ${JSON.stringify(headersObj, null, 4).replace(/\n/g, '\n  ')}`;
+        
+        if (endpoint.method !== 'GET' && customBody) {
+          codeContent += `,\n  body: JSON.stringify(${customBody.replace(/\n\s*/g, '')})`;
+        }
+        codeContent += `\n})\n.then(response => response.json())\n.then(data => console.log(data));`;
+      } else if (activeTab === 'go') {
+        codeContent = `package main\n\nimport (\n\t"bytes"\n\t"encoding/json"\n\t"net/http"\n)\n\nfunc main() {\n`;
+        if (endpoint.method !== 'GET' && customBody) {
+          codeContent += `\tpayload, _ := json.Marshal(map[string]interface{}{\n`;
+          try {
+            const parsed = JSON.parse(customBody);
+            Object.keys(parsed).forEach(k => {
+              const val = typeof parsed[k] === 'string' ? `"${parsed[k]}"` : parsed[k];
+              codeContent += `\t\t"${k}": ${val},\n`;
+            });
+          } catch(e) {
+            codeContent += `\t\t// Invalid JSON payload input\n`;
+          }
+          codeContent += `\t})\n`;
+          codeContent += `\treq, _ := http.NewRequest("${endpoint.method}", "${fullUrl}", bytes.NewBuffer(payload))\n`;
+        } else {
+          codeContent += `\treq, _ := http.NewRequest("${endpoint.method}", "${fullUrl}", nil)\n`;
+        }
+        
+        if (endpoint.access === 'auth') {
+          codeContent += `\treq.Header.Set("Authorization", "Bearer ${customToken}")\n`;
+        } else if (endpoint.access === 'internal') {
+          codeContent += `\treq.Header.Set("X-Internal-Service", "INTERNAL_SECRET_TOKEN")\n`;
+        }
+        if (endpoint.method !== 'GET') {
+          codeContent += `\treq.Header.Set("Content-Type", "application/json")\n`;
+        }
+        codeContent += `\tresp, _ := http.DefaultClient.Do(req)\n\tdefer resp.Body.Close()\n}`;
+      }
+
+      codeOutputEl.textContent = codeContent;
+    }
+
+    // Dynamic Tab click handler inside playground
+    function switchPlaygroundTab(index, btn, lang) {
+      const container = document.querySelector(`.playground-container-${index}`);
+      container.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      updatePlaygroundCode(index);
+    }
+
+    // Populate active endpoint grid cards
+    function renderEndpoints(searchFilter = "") {
+      const container = document.getElementById("endpoints-grid");
+      container.innerHTML = "";
+      
+      const currentService = SERVICES_DATA[activeServiceKey];
+      const filtered = currentService.endpoints.filter(e => {
+        if (!searchFilter) return true;
+        const matchesPath = e.path.toLowerCase().includes(searchFilter);
+        const matchesDesc = e.description.toLowerCase().includes(searchFilter);
+        const matchesMethod = e.method.toLowerCase().includes(searchFilter);
+        const matchesPrivilege = e.privilege.toLowerCase().includes(searchFilter);
+        return matchesPath || matchesDesc || matchesMethod || matchesPrivilege;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <i class="fa-solid fa-cloud-moon"></i>
+            <h3>No Endpoints Found</h3>
+            <p>We couldn't find any endpoints matching "${searchFilter}" in the ${currentService.name} domain.</p>
+          </div>
+        `;
+        return;
+      }
+
+      filtered.forEach((endpoint) => {
+        const idx = currentService.endpoints.indexOf(endpoint);
+        const hasParams = endpoint.params && endpoint.params.length > 0;
+        
+        const card = document.createElement("div");
+        card.className = "endpoint-card";
+        
+        // Header HTML
+        let headerHTML = `
+          <div class="endpoint-header" onclick="toggleCard(this.parentElement)">
+            <div class="endpoint-identity">
+              <span class="method-badge ${endpoint.method.toLowerCase()}">${endpoint.method}</span>
+              <span class="path-text">${endpoint.path}</span>
+              <span class="endpoint-summary">${endpoint.description}</span>
+            </div>
+            
+            <div class="endpoint-meta-badges">
+              <span class="access-badge ${endpoint.access}">
+                <i class="fa-solid ${endpoint.access === 'public' ? 'fa-globe' : endpoint.access === 'auth' ? 'fa-lock' : 'fa-network-wired'}"></i>
+                ${endpoint.access}
+              </span>
+              ${endpoint.privilege !== 'None' ? `<span class="privilege-pill">${endpoint.privilege}</span>` : ''}
+              <i class="fa-solid fa-chevron-down chevron-icon"></i>
+            </div>
+          </div>
+        `;
+
+        // Details Panel HTML
+        let paramsTableHTML = "";
+        let playgroundParamsInputs = "";
+        
+        if (hasParams) {
+          paramsTableHTML = `
+            <div>
+              <h4 class="section-title"><i class="fa-solid fa-circle-info"></i> Query & Path Parameters</h4>
+              <table class="param-table">
+                <thead>
+                  <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Required</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${endpoint.params.map(p => `
+                    <tr>
+                      <td class="param-name">${p.name}</td>
+                      <td class="param-type">${p.type}</td>
+                      <td><span class="param-req ${p.required ? 'yes' : 'no'}">${p.required ? 'yes' : 'no'}</span></td>
+                      <td>${p.desc}</td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+          `;
+
+          // Playground parameters input elements
+          playgroundParamsInputs = `
+            <div class="form-row">
+              ${endpoint.params.map(p => `
+                <div class="form-group">
+                  <label>${p.name} (${p.type}) ${p.required ? '<span style="color:var(--rose-neon)">*</span>' : ''}</label>
+                  <input type="text" id="pg-param-${idx}-${p.name}" placeholder="Type ${p.name}..." oninput="updatePlaygroundCode(${idx})">
+                </div>
+              `).join("")}
+            </div>
+          `;
+        }
+
+        let bodyVisualizerHTML = "";
+        let bodyInputHTML = "";
+        if (endpoint.requestBody) {
+          const bodyJSON = JSON.stringify(endpoint.requestBody, null, 2);
+          bodyVisualizerHTML = `
+            <div class="payload-panel">
+              <div class="code-header">
+                <span class="code-label"><i class="fa-solid fa-arrow-right-to-bracket"></i> Request Payload Schema</span>
+                <button class="copy-btn" id="copy-req-${idx}" onclick="copyText('copy-req-${idx}', \`${bodyJSON}\`)">
+                  <i class="fa-regular fa-copy"></i> Copy
+                </button>
+              </div>
+              <pre class="code-block">${formatJSON(endpoint.requestBody)}</pre>
+            </div>
+          `;
+
+          // Playground request body textarea input
+          bodyInputHTML = `
+            <div class="form-group">
+              <label>Custom Request Body JSON</label>
+              <textarea id="pg-body-${idx}" oninput="updatePlaygroundCode(${idx})">${bodyJSON}</textarea>
+            </div>
+          `;
+        }
+
+        const successJSON = JSON.stringify(endpoint.responseSuccess, null, 2);
+        
+        let detailsHTML = `
+          <div class="endpoint-details">
+            <div class="details-content">
+              
+              <!-- Parameters Details -->
+              ${paramsTableHTML}
+              
+              <!-- Request / Response schemas split -->
+              <div class="payload-split">
+                ${bodyVisualizerHTML}
+                
+                <div class="payload-panel">
+                  <div class="code-header">
+                    <span class="code-label">
+                      <i class="fa-solid fa-arrow-right-from-bracket"></i> Success Response 
+                      <span style="color:var(--color-post); background:rgba(0,255,135,0.08)">200 OK</span>
+                    </span>
+                    <button class="copy-btn" id="copy-resp-${idx}" onclick="copyText('copy-resp-${idx}', \`${successJSON}\`)">
+                      <i class="fa-regular fa-copy"></i> Copy
+                    </button>
+                  </div>
+                  <pre class="code-block">${formatJSON(endpoint.responseSuccess)}</pre>
+                </div>
+              </div>
+
+              <!-- Interactive Playground Playground -->
+              <div class="playground-section playground-container-${idx}">
+                <h4 class="section-title"><i class="fa-solid fa-flask"></i> Interactive Playground (Developer Sandbox)</h4>
+                <div class="tab-bar">
+                  <button class="tab-btn active" data-lang="curl" onclick="switchPlaygroundTab(${idx}, this, 'curl')"><i class="fa-solid fa-terminal"></i> cURL Command</button>
+                  <button class="tab-btn" data-lang="fetch" onclick="switchPlaygroundTab(${idx}, this, 'fetch')"><i class="fa-brands fa-js"></i> JS Fetch</button>
+                  <button class="tab-btn" data-lang="go" onclick="switchPlaygroundTab(${idx}, this, 'go')"><i class="fa-brands fa-golang"></i> Go SDK client</button>
+                </div>
+
+                <div class="playground-form">
+                  ${endpoint.access === 'auth' ? `
+                    <div class="form-group">
+                      <label>Bearer Authentication Access JWT Header</label>
+                      <input type="text" id="pg-token-${idx}" placeholder="Paste your authentication Bearer JWT here..." oninput="updatePlaygroundCode(${idx})">
+                    </div>
+                  ` : ''}
+                  
+                  ${playgroundParamsInputs}
+                  ${bodyInputHTML}
+                  
+                  <div class="payload-panel" style="margin-top: 1rem;">
+                    <div class="code-header" style="background:#050508;">
+                      <span class="code-label"><i class="fa-solid fa-code"></i> Generated Code Snippet</span>
+                      <button class="copy-btn" id="copy-code-${idx}" onclick="copyText('copy-code-${idx}', document.getElementById('playground-code-${idx}').textContent)">
+                        <i class="fa-regular fa-copy"></i> Copy Snippet
+                      </button>
+                    </div>
+                    <pre class="code-block" id="playground-code-${idx}" style="background:#020204; color:#a5d6ff; max-height:250px; font-size:0.85rem;"></pre>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        `;
+
+        card.innerHTML = headerHTML + detailsHTML;
+        container.appendChild(card);
+        
+        // Populate playground code command snippet
+        updatePlaygroundCode(idx);
+      });
+    }
+  </script>
+</body>
+</html>

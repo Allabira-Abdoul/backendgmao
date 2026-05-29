@@ -1,0 +1,45 @@
+package http
+
+import (
+	"backend-gmao/apps/asset-service/internal/core/ports/primary"
+	"backend-gmao/pkg/auth"
+	"backend-gmao/pkg/middleware"
+	"github.com/gin-gonic/gin"
+)
+
+// RegisterRoutes sets up all HTTP routes for the asset service.
+func RegisterRoutes(
+	router *gin.Engine,
+	jwtManager *auth.JWTManager,
+	assetService primary.AssetService,
+) {
+	assetHandler := NewAssetHandler(assetService)
+
+	// Authenticated routes
+	authenticated := router.Group("/")
+	authenticated.Use(middleware.RequireAuth(jwtManager))
+	{
+		// Legacy endpoint for backward compatibility
+		assets := authenticated.Group("/assets")
+		{
+			assets.GET("", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetLegacyAssets)
+		}
+
+		models := authenticated.Group("/models")
+		{
+			models.POST("/equipment", middleware.RequirePrivilege("ASSET_CREATE"), assetHandler.CreateEquipmentModel)
+			models.POST("/parts", middleware.RequirePrivilege("ASSET_CREATE"), assetHandler.CreatePartModel)
+			models.GET("/equipment", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetEquipmentModels)
+			models.GET("/parts", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetPartModels)
+		}
+
+		instances := authenticated.Group("/instances")
+		{
+			instances.POST("/equipment", middleware.RequirePrivilege("ASSET_CREATE"), assetHandler.CreateEquipmentInstance)
+			instances.POST("/parts", middleware.RequirePrivilege("ASSET_CREATE"), assetHandler.CreatePartInstance)
+			instances.GET("/equipment", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetEquipmentInstances)
+			instances.GET("/equipment/code/:code", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetEquipmentInstanceByCode)
+			instances.GET("/equipment/:id", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetEquipmentInstanceByID)
+		}
+	}
+}
