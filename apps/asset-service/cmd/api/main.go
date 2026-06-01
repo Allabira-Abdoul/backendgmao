@@ -10,6 +10,7 @@ import (
 	"time"
 
 	httphandler "backend-gmao/apps/asset-service/internal/adapters/primary/http"
+	importPrimaryEventBus "backend-gmao/apps/asset-service/internal/adapters/primary/eventbus"
 	importEventBus "backend-gmao/apps/asset-service/internal/adapters/secondary/eventbus"
 	pgadapter "backend-gmao/apps/asset-service/internal/adapters/secondary/postgres"
 	"backend-gmao/apps/asset-service/internal/application/service"
@@ -63,6 +64,8 @@ func main() {
 		&domain.PartInstance{}, 
 		&domain.MetricThreshold{},
 		&domain.PartConsumptionLog{},
+		&domain.Supplier{},
+		&domain.ModelSupplier{},
 	); err != nil {
 		log.Fatalf("Failed to migrate Asset tables: %v", err)
 	}
@@ -111,6 +114,9 @@ func main() {
 
 	// --- Application Services ---
 	assetService := service.NewAssetService(assetRepo, measurementRepo, eventPublisher)
+
+	// --- Start Consuming Events ---
+	importPrimaryEventBus.StartConsumingWorkOrderEvents(bus, assetService)
 
 	// --- Register with Consul ---
 	err = registry.Register(serviceID, serviceName, host, port)

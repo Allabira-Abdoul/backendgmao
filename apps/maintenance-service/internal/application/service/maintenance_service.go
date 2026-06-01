@@ -26,6 +26,7 @@ type MaintenanceService struct {
 	auditClient     audit.Client
 	userClient      secondary.UserClient
 	assetClient     secondary.AssetClient
+	eventPublisher  secondary.EventPublisher
 }
 
 // NewMaintenanceService initializes a new MaintenanceService instance.
@@ -35,6 +36,7 @@ func NewMaintenanceService(
 	auditClient audit.Client,
 	userClient secondary.UserClient,
 	assetClient secondary.AssetClient,
+	eventPublisher secondary.EventPublisher,
 ) *MaintenanceService {
 	return &MaintenanceService{
 		maintenanceRepo: maintenanceRepo,
@@ -42,6 +44,7 @@ func NewMaintenanceService(
 		auditClient:     auditClient,
 		userClient:      userClient,
 		assetClient:     assetClient,
+		eventPublisher:  eventPublisher,
 	}
 }
 
@@ -218,6 +221,36 @@ func (s *MaintenanceService) GetAllWorkOrders(ctx context.Context) ([]domain.Ord
 	return responses, nil
 }
 
+func (s *MaintenanceService) StartWorkOrder(ctx context.Context, id uuid.UUID) (*domain.OrdreTravailResponse, error) {
+	wo, err := s.maintenanceRepo.FindWorkOrderByID(ctx, id)
+	if err != nil {
+		return nil, ErrWorkOrderNotFound
+	}
+
+	if wo.Status == "PENDING" {
+		wo.Status = "IN_PROGRESS"
+		wo.UpdatedAt = time.Now()
+		if err := s.maintenanceRepo.UpdateWorkOrder(ctx, wo); err != nil {
+			return nil, err
+		}
+		
+		s.fireAudit(ctx, "START_WORK_ORDER", fmt.Sprintf("Started work order %s", wo.ID))
+		
+		if s.eventPublisher != nil {
+			_ = s.eventPublisher.PublishWorkOrderStarted(ctx, wo.ID, wo.AssetID, wo.Type)
+		}
+	}
+
+	interventions, _ := s.maintenanceRepo.FindInterventionsByWorkOrderID(ctx, id)
+	wo.Interventions = interventions
+
+	inspections, _ := s.maintenanceRepo.FindInspectionsByWorkOrderID(ctx, id)
+	wo.Inspections = inspections
+
+	resp := s.buildOrdreTravailResponse(ctx, wo)
+	return &resp, nil
+}
+
 func (s *MaintenanceService) RecordIntervention(ctx context.Context, workOrderID uuid.UUID, req domain.CreateInterventionRequest) (*domain.InterventionResponse, error) {
 	_, err := s.maintenanceRepo.FindWorkOrderByID(ctx, workOrderID)
 	if err != nil {
@@ -287,14 +320,6 @@ func (s *MaintenanceService) StartIntervention(ctx context.Context, workOrderID 
 		return nil, err
 	}
 
-	wo, _ := s.maintenanceRepo.FindWorkOrderByID(ctx, workOrderID)
-	if wo != nil {
-		// Update asset status to DOWN
-		// Note: we assume the secondary.AssetClient has an UpdateStatus method or we add one.
-		// For now we assume assetClient has UpdateAssetStatus
-		_ = s.assetClient.UpdateAssetStatus(context.Background(), wo.AssetID, "DOWN")
-	}
-
 	s.fireAudit(ctx, "START_INTERVENTION", fmt.Sprintf("Started intervention %s", interventionID))
 	resp := s.buildInterventionResponse(ctx, inv)
 	return &resp, nil
@@ -314,8 +339,14 @@ func (s *MaintenanceService) EndIntervention(ctx context.Context, workOrderID uu
 
 	wo, _ := s.maintenanceRepo.FindWorkOrderByID(ctx, workOrderID)
 	if wo != nil {
-		_ = s.assetClient.UpdateAssetStatus(context.Background(), wo.AssetID, "OPERATIONAL")
+		wo.Status = "COMPLETED"
+		wo.UpdatedAt = now
+		_ = s.maintenanceRepo.UpdateWorkOrder(ctx, wo)
 		
+		if s.eventPublisher != nil {
+			_ = s.eventPublisher.PublishWorkOrderCompleted(ctx, wo.ID, wo.AssetID, wo.Type, inv.MaintenanceType)
+		}
+
 		if inv.StartedAt != nil {
 			durationMins := int(now.Sub(*inv.StartedAt).Minutes())
 			event := secondary.MaintenanceEvent{
@@ -412,6 +443,17 @@ func (s *MaintenanceService) EndInspection(ctx context.Context, workOrderID uuid
 	ins.EndedAt = &now
 	if err := s.maintenanceRepo.UpdateInspection(ctx, ins); err != nil {
 		return nil, err
+	}
+
+	wo, _ := s.maintenanceRepo.FindWorkOrderByID(ctx, workOrderID)
+	if wo != nil {
+		wo.Status = "COMPLETED"
+		wo.UpdatedAt = now
+		_ = s.maintenanceRepo.UpdateWorkOrder(ctx, wo)
+		
+		if s.eventPublisher != nil {
+			_ = s.eventPublisher.PublishWorkOrderCompleted(ctx, wo.ID, wo.AssetID, wo.Type, "")
+		}
 	}
 
 	s.fireAudit(ctx, "END_INSPECTION", fmt.Sprintf("Ended inspection %s", inspectionID))

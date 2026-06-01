@@ -14,6 +14,7 @@ type MaintenanceService interface {
 	DeleteWorkOrder(ctx context.Context, id uuid.UUID) error
 	GetWorkOrder(ctx context.Context, id uuid.UUID) (*domain.OrdreTravailResponse, error)
 	GetAllWorkOrders(ctx context.Context) ([]domain.OrdreTravailResponse, error)
+	StartWorkOrder(ctx context.Context, id uuid.UUID) (*domain.OrdreTravailResponse, error)
 
 	RecordIntervention(ctx context.Context, workOrderID uuid.UUID, req domain.CreateInterventionRequest) (*domain.InterventionResponse, error)
 	StartIntervention(ctx context.Context, workOrderID uuid.UUID, interventionID uuid.UUID) (*domain.InterventionResponse, error)

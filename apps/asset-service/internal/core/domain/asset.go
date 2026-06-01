@@ -13,6 +13,7 @@ type EquipmentModel struct {
 	Category    string            `gorm:"column:category;not null" json:"category"`
 	Description string            `gorm:"column:description" json:"description"`
 	Thresholds  []MetricThreshold `gorm:"foreignKey:EquipmentModelID" json:"thresholds,omitempty"`
+	Suppliers   []ModelSupplier   `gorm:"foreignKey:EquipmentModelID" json:"suppliers,omitempty"`
 	CreatedAt   time.Time         `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt   time.Time         `gorm:"column:updated_at" json:"updated_at"`
 }
@@ -27,6 +28,7 @@ type PartModel struct {
 	SpareQuantity int               `gorm:"column:spare_quantity;default:0" json:"spare_quantity"`
 	IsSerialized  bool              `gorm:"column:is_serialized;default:false" json:"is_serialized"`
 	Thresholds    []MetricThreshold `gorm:"foreignKey:PartModelID" json:"thresholds,omitempty"`
+	Suppliers     []ModelSupplier   `gorm:"foreignKey:PartModelID" json:"suppliers,omitempty"`
 	CreatedAt     time.Time         `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt     time.Time         `gorm:"column:updated_at" json:"updated_at"`
 }
@@ -88,6 +90,7 @@ type EquipmentModelResponse struct {
 	Category    string                    `json:"category"`
 	Description string                    `json:"description"`
 	Thresholds  []MetricThresholdResponse `json:"thresholds,omitempty"`
+	Suppliers   []ModelSupplierResponse   `json:"suppliers,omitempty"`
 	CreatedAt   time.Time                 `json:"created_at"`
 	UpdatedAt   time.Time                 `json:"updated_at"`
 }
@@ -99,6 +102,7 @@ type PartModelResponse struct {
 	SpareQuantity int                       `json:"spare_quantity"`
 	IsSerialized  bool                      `json:"is_serialized"`
 	Thresholds    []MetricThresholdResponse `json:"thresholds,omitempty"`
+	Suppliers     []ModelSupplierResponse   `json:"suppliers,omitempty"`
 	CreatedAt     time.Time                 `json:"created_at"`
 	UpdatedAt     time.Time                 `json:"updated_at"`
 }
@@ -136,12 +140,15 @@ type PartInstanceResponse struct {
 func (e *EquipmentModel) ToResponse() EquipmentModelResponse {
 	thresh := make([]MetricThresholdResponse, len(e.Thresholds))
 	for i, t := range e.Thresholds { thresh[i] = t.ToResponse() }
+	sups := make([]ModelSupplierResponse, len(e.Suppliers))
+	for i, s := range e.Suppliers { sups[i] = s.ToResponse() }
 	return EquipmentModelResponse{
 		ID:          e.ID,
 		Name:        e.Name,
 		Category:    e.Category,
 		Description: e.Description,
 		Thresholds:  thresh,
+		Suppliers:   sups,
 		CreatedAt:   e.CreatedAt,
 		UpdatedAt:   e.UpdatedAt,
 	}
@@ -150,6 +157,8 @@ func (e *EquipmentModel) ToResponse() EquipmentModelResponse {
 func (p *PartModel) ToResponse() PartModelResponse {
 	thresh := make([]MetricThresholdResponse, len(p.Thresholds))
 	for i, t := range p.Thresholds { thresh[i] = t.ToResponse() }
+	sups := make([]ModelSupplierResponse, len(p.Suppliers))
+	for i, s := range p.Suppliers { sups[i] = s.ToResponse() }
 	return PartModelResponse{
 		ID:            p.ID,
 		Name:          p.Name,
@@ -157,6 +166,7 @@ func (p *PartModel) ToResponse() PartModelResponse {
 		SpareQuantity: p.SpareQuantity,
 		IsSerialized:  p.IsSerialized,
 		Thresholds:    thresh,
+		Suppliers:     sups,
 		CreatedAt:     p.CreatedAt,
 		UpdatedAt:     p.UpdatedAt,
 	}

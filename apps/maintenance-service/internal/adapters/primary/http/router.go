@@ -26,6 +26,7 @@ func RegisterRoutes(
 			workorders.GET("/:id", maintenanceHandler.GetWorkOrder)
 			workorders.PUT("/:id", maintenanceHandler.UpdateWorkOrder)
 			workorders.DELETE("/:id", maintenanceHandler.DeleteWorkOrder)
+			workorders.POST("/:id/start", maintenanceHandler.StartWorkOrder)
 
 			// Interventions under work order
 			workorders.POST("/:id/interventions", maintenanceHandler.CreateIntervention)

@@ -18,6 +18,8 @@ import (
 	"backend-gmao/pkg/auth"
 	"backend-gmao/pkg/db"
 	"backend-gmao/pkg/discovery"
+	"backend-gmao/pkg/eventbus"
+	importEventBus "backend-gmao/apps/maintenance-service/internal/adapters/secondary/eventbus"
 
 	"github.com/gin-gonic/gin"
 )
@@ -90,10 +92,18 @@ func main() {
 	userClient := sechttp.NewUserClient(jwtManager)
 	assetClient := sechttp.NewAssetClient(jwtManager)
 
+	// --- EventBus (RabbitMQ) ---
+	rabbitmqURL := getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+	bus, err := eventbus.NewRabbitMQBus(rabbitmqURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
+	}
+	eventPublisher := importEventBus.NewRabbitMQPublisher(bus)
+
 	// --- Application Services ---
 	jwtManagerForInternal := auth.NewJWTManager(jwtSecret, time.Minute*5, time.Minute*5)
 	auditClient := audit.NewClient("maintenance-service", jwtManagerForInternal)
-	maintenanceService := service.NewMaintenanceService(maintenanceRepo, analyticsClient, auditClient, userClient, assetClient)
+	maintenanceService := service.NewMaintenanceService(maintenanceRepo, analyticsClient, auditClient, userClient, assetClient, eventPublisher)
 
 	// --- Register with Consul ---
 	err = registry.Register(serviceID, serviceName, host, port)

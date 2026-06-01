@@ -264,3 +264,76 @@ func (h *AssetHandler) GetLegacyAssets(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, legacy)
 }
+
+// --- Suppliers ---
+
+func (h *AssetHandler) CreateSupplier(c *gin.Context) {
+	var req domain.CreateSupplierRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	res, err := h.service.CreateSupplier(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, res)
+}
+
+func (h *AssetHandler) GetSuppliers(c *gin.Context) {
+	res, err := h.service.GetSuppliers(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+func (h *AssetHandler) AddSupplierToEquipmentModel(c *gin.Context) {
+	idParam := c.Param("id")
+	modelID, err := uuid.Parse(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid equipment model id"})
+		return
+	}
+
+	var req domain.AddModelSupplierRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	res, err := h.service.AddSupplierToEquipmentModel(c.Request.Context(), modelID, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, res)
+}
+
+func (h *AssetHandler) AddSupplierToPartModel(c *gin.Context) {
+	idParam := c.Param("id")
+	modelID, err := uuid.Parse(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid part model id"})
+		return
+	}
+
+	var req domain.AddModelSupplierRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	res, err := h.service.AddSupplierToPartModel(c.Request.Context(), modelID, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, res)
+}

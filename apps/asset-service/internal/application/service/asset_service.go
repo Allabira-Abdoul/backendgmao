@@ -78,6 +78,89 @@ func (s *assetService) GetPartModels(ctx context.Context) ([]domain.PartModelRes
 	return res, nil
 }
 
+// --- Suppliers ---
+
+func (s *assetService) CreateSupplier(ctx context.Context, req domain.CreateSupplierRequest) (domain.SupplierResponse, error) {
+	supplier := &domain.Supplier{
+		ID:          uuid.New(),
+		Name:        req.Name,
+		ContactInfo: req.ContactInfo,
+	}
+
+	if err := s.repo.CreateSupplier(ctx, supplier); err != nil {
+		return domain.SupplierResponse{}, err
+	}
+
+	return supplier.ToResponse(), nil
+}
+
+func (s *assetService) GetSuppliers(ctx context.Context) ([]domain.SupplierResponse, error) {
+	suppliers, err := s.repo.GetSuppliers(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]domain.SupplierResponse, len(suppliers))
+	for i, sup := range suppliers {
+		res[i] = sup.ToResponse()
+	}
+	return res, nil
+}
+
+func (s *assetService) AddSupplierToEquipmentModel(ctx context.Context, modelID uuid.UUID, req domain.AddModelSupplierRequest) (domain.ModelSupplierResponse, error) {
+	supplier, err := s.repo.GetSupplierByID(ctx, req.SupplierID)
+	if err != nil || supplier == nil {
+		return domain.ModelSupplierResponse{}, errors.New("supplier not found")
+	}
+
+	model, err := s.repo.GetEquipmentModelByID(ctx, modelID)
+	if err != nil || model == nil {
+		return domain.ModelSupplierResponse{}, errors.New("equipment model not found")
+	}
+
+	modelSupplier := &domain.ModelSupplier{
+		ID:                    uuid.New(),
+		SupplierID:            req.SupplierID,
+		EquipmentModelID:      &modelID,
+		SupplierReferenceCode: req.SupplierReferenceCode,
+		TechnicalDocReference: req.TechnicalDocReference,
+	}
+
+	if err := s.repo.AddModelSupplier(ctx, modelSupplier); err != nil {
+		return domain.ModelSupplierResponse{}, err
+	}
+
+	modelSupplier.Supplier = supplier // for response serialization
+	return modelSupplier.ToResponse(), nil
+}
+
+func (s *assetService) AddSupplierToPartModel(ctx context.Context, modelID uuid.UUID, req domain.AddModelSupplierRequest) (domain.ModelSupplierResponse, error) {
+	supplier, err := s.repo.GetSupplierByID(ctx, req.SupplierID)
+	if err != nil || supplier == nil {
+		return domain.ModelSupplierResponse{}, errors.New("supplier not found")
+	}
+
+	model, err := s.repo.GetPartModelByID(ctx, modelID)
+	if err != nil || model == nil {
+		return domain.ModelSupplierResponse{}, errors.New("part model not found")
+	}
+
+	modelSupplier := &domain.ModelSupplier{
+		ID:                    uuid.New(),
+		SupplierID:            req.SupplierID,
+		PartModelID:           &modelID,
+		SupplierReferenceCode: req.SupplierReferenceCode,
+		TechnicalDocReference: req.TechnicalDocReference,
+	}
+
+	if err := s.repo.AddModelSupplier(ctx, modelSupplier); err != nil {
+		return domain.ModelSupplierResponse{}, err
+	}
+
+	modelSupplier.Supplier = supplier // for response serialization
+	return modelSupplier.ToResponse(), nil
+}
+
 func (s *assetService) CreateEquipmentInstance(ctx context.Context, req domain.CreateEquipmentInstanceRequest) (domain.EquipmentInstanceResponse, error) {
 	// Verify model exists
 	model, err := s.repo.GetEquipmentModelByID(ctx, req.EquipmentModelID)
@@ -182,6 +265,27 @@ func (s *assetService) GetEquipmentInstanceByID(ctx context.Context, id uuid.UUI
 	}
 
 	return instance.ToResponse(), nil
+}
+
+func (s *assetService) UpdateEquipmentStatus(ctx context.Context, id uuid.UUID, newStatus string) error {
+	instance, err := s.repo.GetEquipmentInstanceByID(ctx, id)
+	if err != nil || instance == nil {
+		return errors.New("equipment instance not found")
+	}
+
+	oldStatus := instance.Status
+	instance.Status = newStatus
+
+	if err := s.repo.UpdateEquipmentInstance(ctx, instance); err != nil {
+		return err
+	}
+
+	s.eventPublisher.PublishAuditLog(ctx, "STATUS_CHANGE", "EQUIPMENT_INSTANCE", instance.ID.String(), nil, map[string]interface{}{
+		"old_status": oldStatus,
+		"new_status": newStatus,
+	})
+
+	return nil
 }
 
 func (s *assetService) MovePartInstance(ctx context.Context, partInstanceID uuid.UUID, req domain.MovePartInstanceRequest) (domain.PartInstanceResponse, error) {

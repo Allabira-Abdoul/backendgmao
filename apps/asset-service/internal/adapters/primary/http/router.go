@@ -31,6 +31,15 @@ func RegisterRoutes(
 			models.POST("/parts", middleware.RequirePrivilege("ASSET_CREATE"), assetHandler.CreatePartModel)
 			models.GET("/equipment", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetEquipmentModels)
 			models.GET("/parts", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetPartModels)
+
+			models.POST("/equipment/:id/suppliers", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.AddSupplierToEquipmentModel)
+			models.POST("/parts/:id/suppliers", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.AddSupplierToPartModel)
+		}
+
+		suppliers := authenticated.Group("/suppliers")
+		{
+			suppliers.POST("", middleware.RequirePrivilege("ASSET_CREATE"), assetHandler.CreateSupplier)
+			suppliers.GET("", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetSuppliers)
 		}
 
 		instances := authenticated.Group("/instances")
