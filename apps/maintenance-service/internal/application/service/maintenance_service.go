@@ -62,13 +62,35 @@ func (s *MaintenanceService) fireAudit(ctx context.Context, action, details stri
 
 	go func() {
 		bgCtx := context.Background()
-		_ = s.auditClient.LogEvent(bgCtx, audit.AuditEvent{
-			ServiceName: "maintenance-service",
-			Action:      action,
-			Details:     details,
-			UserID:      uidPtr,
-			UserName:    userName,
-		})
+
+		// Publish to HTTP Audit Service
+		if s.auditClient != nil {
+			_ = s.auditClient.LogEvent(bgCtx, audit.AuditEvent{
+				ServiceName: "maintenance-service",
+				Action:      action,
+				Details:     details,
+				UserID:      uidPtr,
+				UserName:    userName,
+			})
+		}
+
+		// Publish to RabbitMQ Audit Exchange
+		if s.eventPublisher != nil {
+			var actorID *uuid.UUID
+			if uidPtr != nil {
+				parsed, err := uuid.Parse(*uidPtr)
+				if err == nil {
+					actorID = &parsed
+				}
+			}
+			changes := map[string]interface{}{
+				"details": details,
+			}
+			if userName != "" {
+				changes["user_name"] = userName
+			}
+			_ = s.eventPublisher.PublishAuditLog(bgCtx, action, "MAINTENANCE", "", actorID, changes)
+		}
 	}()
 }
 

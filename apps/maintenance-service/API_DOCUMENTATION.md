@@ -161,6 +161,20 @@ Update details, progress status, priority, or assignment of an existing work ord
 
 ---
 
+### 🟢 Start Work Order (Privilege: `WORKORDER_UPDATE`)
+
+Marks a work order as started (transitions status from `PENDING` to `IN_PROGRESS` and broadcasts the `WORK_ORDER_STARTED` event).
+
+- **HTTP Method**: `POST`
+- **Path**: `/api/maintenance/work-orders/:id/start`
+- **Authentication**: Bearer JWT
+
+#### Success Response
+- **Status Code**: `200 OK`
+- **Body**: (Returns the updated work order JSON object)
+
+---
+
 ### 🟢 Delete Work Order (Privilege: `WORKORDER_DELETE`)
 
 Delete a work order ticket from the active repository.
