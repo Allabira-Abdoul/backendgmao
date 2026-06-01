@@ -12,17 +12,19 @@ import (
 
 // AnalyticsService implements primary.AnalyticsService.
 type AnalyticsService struct {
-	metricRepo  secondary.MetricRepository
-	kpiRepo     secondary.KpiRepository
-	assetClient secondary.AssetClient
+	metricRepo     secondary.MetricRepository
+	kpiRepo        secondary.KpiRepository
+	assetClient    secondary.AssetClient
+	eventPublisher secondary.EventPublisher
 }
 
 // NewAnalyticsService initializes a new AnalyticsService instance.
-func NewAnalyticsService(metricRepo secondary.MetricRepository, kpiRepo secondary.KpiRepository, assetClient secondary.AssetClient) *AnalyticsService {
+func NewAnalyticsService(metricRepo secondary.MetricRepository, kpiRepo secondary.KpiRepository, assetClient secondary.AssetClient, eventPublisher secondary.EventPublisher) *AnalyticsService {
 	return &AnalyticsService{
-		metricRepo:  metricRepo,
-		kpiRepo:     kpiRepo,
-		assetClient: assetClient,
+		metricRepo:     metricRepo,
+		kpiRepo:        kpiRepo,
+		assetClient:    assetClient,
+		eventPublisher: eventPublisher,
 	}
 }
 
@@ -37,6 +39,14 @@ func (s *AnalyticsService) RecordMetric(ctx context.Context, req domain.CreateMe
 
 	if err := s.metricRepo.Save(ctx, metric); err != nil {
 		return nil, err
+	}
+
+	if s.eventPublisher != nil {
+		s.eventPublisher.PublishAuditLog(ctx, "RECORD", "METRIC", metric.ID.String(), nil, map[string]interface{}{
+			"name":     metric.Name,
+			"value":    metric.Value,
+			"category": metric.Category,
+		})
 	}
 
 	resp := metric.ToResponse()

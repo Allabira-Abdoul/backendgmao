@@ -3,6 +3,7 @@ package eventbus
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"time"
 
 	"backend-gmao/apps/analytics-service/internal/core/domain"
@@ -24,19 +25,32 @@ func NewAnalyticsConsumer(bus eventbus.EventBus, kpiRepo secondary.KpiRepository
 }
 
 func (c *AnalyticsConsumer) Start(ctx context.Context) error {
-	// Subscribe to Asset Events
-	err := c.bus.Subscribe(ctx, "asset.events", "analytics-asset-q", []string{"asset.created", "asset.updated", "asset.state.changed"}, func(event eventbus.Event) error {
-		return c.handleAssetEvent(ctx, event)
-	})
-	if err != nil {
+	handleAsset := func(event eventbus.Event) {
+		if err := c.handleAssetEvent(context.Background(), event); err != nil {
+			log.Printf("Error handling asset event: %v", err)
+		}
+	}
+
+	if err := c.bus.Subscribe("asset.events", "analytics-asset-q", "asset.created", handleAsset); err != nil {
+		return err
+	}
+	if err := c.bus.Subscribe("asset.events", "analytics-asset-q", "asset.updated", handleAsset); err != nil {
+		return err
+	}
+	if err := c.bus.Subscribe("asset.events", "analytics-asset-q", "asset.state.changed", handleAsset); err != nil {
 		return err
 	}
 
-	// Subscribe to Maintenance Events
-	err = c.bus.Subscribe(ctx, "maintenance.events", "analytics-maintenance-q", []string{"maintenance.workorder.started", "maintenance.workorder.completed"}, func(event eventbus.Event) error {
-		return c.handleMaintenanceEvent(ctx, event)
-	})
-	if err != nil {
+	handleMaintenance := func(event eventbus.Event) {
+		if err := c.handleMaintenanceEvent(context.Background(), event); err != nil {
+			log.Printf("Error handling maintenance event: %v", err)
+		}
+	}
+
+	if err := c.bus.Subscribe("maintenance.events", "analytics-maintenance-q", "maintenance.workorder.started", handleMaintenance); err != nil {
+		return err
+	}
+	if err := c.bus.Subscribe("maintenance.events", "analytics-maintenance-q", "maintenance.workorder.completed", handleMaintenance); err != nil {
 		return err
 	}
 

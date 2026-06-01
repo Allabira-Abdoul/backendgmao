@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -11,11 +12,11 @@ import (
 
 	httphandler "backend-gmao/apps/analytics-service/internal/adapters/primary/http"
 	"backend-gmao/apps/analytics-service/internal/adapters/primary/eventbus"
+	importEventBus "backend-gmao/apps/analytics-service/internal/adapters/secondary/eventbus"
 	sechttp "backend-gmao/apps/analytics-service/internal/adapters/secondary/http"
 	pgadapter "backend-gmao/apps/analytics-service/internal/adapters/secondary/postgres"
 	"backend-gmao/apps/analytics-service/internal/application/service"
 	pkgEventBus "backend-gmao/pkg/eventbus"
-	"backend-gmao/apps/analytics-service/internal/core/domain"
 	"backend-gmao/pkg/auth"
 	"backend-gmao/pkg/db"
 	"backend-gmao/pkg/discovery"
@@ -96,8 +97,10 @@ func main() {
 	}
 	defer bus.Close()
 
+	eventPublisher := importEventBus.NewRabbitMQPublisher(bus)
+
 	// --- Application Services ---
-	analyticsService := service.NewAnalyticsService(metricRepo, kpiRepo, assetClient)
+	analyticsService := service.NewAnalyticsService(metricRepo, kpiRepo, assetClient, eventPublisher)
 
 	// --- Background Refresh ---
 	analyticsService.StartBackgroundRefresher(context.Background())
