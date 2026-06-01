@@ -188,6 +188,9 @@ func (s *assetService) CreateEquipmentInstance(ctx context.Context, req domain.C
 		"model_id": instance.EquipmentModelID.String(),
 	})
 
+	// Emit Domain Event for Analytics
+	s.eventPublisher.PublishAssetCreated(ctx, instance.ID, instance.EquipmentModelID, model.Category, []string{})
+
 	return instance.ToResponse(), nil
 }
 
@@ -284,6 +287,11 @@ func (s *assetService) UpdateEquipmentStatus(ctx context.Context, id uuid.UUID, 
 		"old_status": oldStatus,
 		"new_status": newStatus,
 	})
+
+	// Emit Domain Event for Analytics
+	if oldStatus != newStatus {
+		s.eventPublisher.PublishAssetStateChanged(ctx, instance.ID, oldStatus, newStatus)
+	}
 
 	return nil
 }

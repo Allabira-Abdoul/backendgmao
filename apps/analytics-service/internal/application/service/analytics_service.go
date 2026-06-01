@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"backend-gmao/apps/analytics-service/internal/core/domain"
@@ -78,135 +79,26 @@ func (s *AnalyticsService) GetMetricsByCategory(ctx context.Context, category st
 	return responses, nil
 }
 
-func (s *AnalyticsService) ProcessMaintenanceEvent(ctx context.Context, event domain.MaintenanceEvent) error {
-	// Only care about corrective maintenance for MTTR/MTBF
-	if event.MaintenanceCategory != "CORRECTIVE" {
-		return nil
-	}
+func (s *AnalyticsService) GetCategoryHealthMetrics(ctx context.Context) ([]domain.CategoryHealthMetrics, error) {
+	return s.kpiRepo.GetCategoryHealthMetrics(ctx)
+}
 
-	state, err := s.kpiRepo.GetByAssetID(ctx, event.AssetID)
-	if err != nil {
-		return err
-	}
-
-	if state == nil {
-		// Fetch asset info from asset-service
-		assetInfo, err := s.assetClient.GetAssetInfo(ctx, event.AssetID)
-		if err != nil {
-			return err
+func (s *AnalyticsService) StartBackgroundRefresher(ctx context.Context) {
+	// Refreshes the Materialized Views once per day, as requested by user.
+	ticker := time.NewTicker(24 * time.Hour)
+	
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				ticker.Stop()
+				return
+			case <-ticker.C:
+				log.Println("Running daily materialized view refresh...")
+				if err := s.kpiRepo.RefreshMaterializedViews(context.Background()); err != nil {
+					log.Printf("Error refreshing materialized views: %v\n", err)
+				}
+			}
 		}
-
-		state = &domain.AssetKpiState{
-			AssetID:         assetInfo.ID,
-			AssetCategory:   assetInfo.Category,
-			PurchaseDate:    assetInfo.PurchaseDate,
-			TotalRepairTime: 0,
-			TotalBreakdowns: 0,
-		}
-	}
-
-	state.TotalBreakdowns += 1
-	state.TotalRepairTime += event.DurationMinutes / 60.0 // Convert to hours
-	state.UpdatedAt = time.Now()
-
-	return s.kpiRepo.Save(ctx, state)
-}
-
-func calculateMTTR(totalRepairTime float64, totalBreakdowns int) float64 {
-	if totalBreakdowns == 0 {
-		return 0
-	}
-	return totalRepairTime / float64(totalBreakdowns)
-}
-
-func calculateMTBF(totalOperatingTime float64, totalRepairTime float64, totalBreakdowns int) float64 {
-	if totalBreakdowns == 0 {
-		return 0
-	}
-	activeTime := totalOperatingTime - totalRepairTime
-	if activeTime < 0 {
-		activeTime = 0
-	}
-	return activeTime / float64(totalBreakdowns)
-}
-
-func calculateAvailability(totalOperatingTime float64, totalRepairTime float64) float64 {
-	if totalOperatingTime <= 0 {
-		return 100.0 // Default to 100% if no operating time
-	}
-	activeTime := totalOperatingTime - totalRepairTime
-	if activeTime < 0 {
-		activeTime = 0
-	}
-	return (activeTime / totalOperatingTime) * 100.0
-}
-
-func (s *AnalyticsService) GetGlobalKpi(ctx context.Context) (*domain.KpiResponse, error) {
-	totalBreakdowns, totalRepairTime, err := s.kpiRepo.GetGlobalAggregates(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	totalOperatingTime, err := s.kpiRepo.GetTotalOperatingTimeGlobal(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return &domain.KpiResponse{
-		Level:           "global",
-		Identifier:      "all",
-		MTTR:            calculateMTTR(totalRepairTime, totalBreakdowns),
-		MTBF:            calculateMTBF(totalOperatingTime, totalRepairTime, totalBreakdowns),
-		Availability:    calculateAvailability(totalOperatingTime, totalRepairTime),
-		TotalBreakdowns: totalBreakdowns,
-	}, nil
-}
-
-func (s *AnalyticsService) GetCategoryKpi(ctx context.Context, category string) (*domain.KpiResponse, error) {
-	totalBreakdowns, totalRepairTime, err := s.kpiRepo.GetCategoryAggregates(ctx, category)
-	if err != nil {
-		return nil, err
-	}
-
-	totalOperatingTime, err := s.kpiRepo.GetTotalOperatingTimeByCategory(ctx, category)
-	if err != nil {
-		return nil, err
-	}
-
-	return &domain.KpiResponse{
-		Level:           "category",
-		Identifier:      category,
-		MTTR:            calculateMTTR(totalRepairTime, totalBreakdowns),
-		MTBF:            calculateMTBF(totalOperatingTime, totalRepairTime, totalBreakdowns),
-		Availability:    calculateAvailability(totalOperatingTime, totalRepairTime),
-		TotalBreakdowns: totalBreakdowns,
-	}, nil
-}
-
-func (s *AnalyticsService) GetAssetKpi(ctx context.Context, assetID uuid.UUID) (*domain.KpiResponse, error) {
-	state, err := s.kpiRepo.GetByAssetID(ctx, assetID)
-	if err != nil {
-		return nil, err
-	}
-	if state == nil {
-		return &domain.KpiResponse{
-			Level:           "asset",
-			Identifier:      assetID.String(),
-			MTTR:            0,
-			MTBF:            0,
-			Availability:    100.0,
-			TotalBreakdowns: 0,
-		}, nil
-	}
-
-	totalOperatingTime := time.Since(state.PurchaseDate).Hours()
-
-	return &domain.KpiResponse{
-		Level:           "asset",
-		Identifier:      assetID.String(),
-		MTTR:            calculateMTTR(state.TotalRepairTime, state.TotalBreakdowns),
-		MTBF:            calculateMTBF(totalOperatingTime, state.TotalRepairTime, state.TotalBreakdowns),
-		Availability:    calculateAvailability(totalOperatingTime, state.TotalRepairTime),
-		TotalBreakdowns: state.TotalBreakdowns,
-	}, nil
+	}()
 }

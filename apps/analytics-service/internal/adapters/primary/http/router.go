@@ -21,10 +21,7 @@ func RegisterRoutes(
 	internal := router.Group("/internal")
 	internal.Use(middleware.RequireInternalService())
 	{
-		events := internal.Group("/analytics/events")
-		{
-			events.POST("/maintenance-completed", kpiHandler.ProcessMaintenanceEvent)
-		}
+		// No longer exposing internal HTTP endpoints for maintenance events (using RabbitMQ instead)
 	}
 
 	// Authenticated routes
@@ -40,9 +37,7 @@ func RegisterRoutes(
 		}
 		kpis := authenticated.Group("/kpis")
 		{
-			kpis.GET("/global", middleware.RequirePrivilege("ANALYTICS_VIEW"), kpiHandler.GetGlobalKpi)
-			kpis.GET("/categories/:category", middleware.RequirePrivilege("ANALYTICS_VIEW"), kpiHandler.GetCategoryKpi)
-			kpis.GET("/assets/:asset_id", middleware.RequirePrivilege("ANALYTICS_VIEW"), kpiHandler.GetAssetKpi)
+			kpis.GET("/categories/health", middleware.RequirePrivilege("ANALYTICS_VIEW"), kpiHandler.GetCategoryHealthMetrics)
 		}
 	}
 }

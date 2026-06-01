@@ -10,9 +10,11 @@ import (
 	"time"
 
 	httphandler "backend-gmao/apps/analytics-service/internal/adapters/primary/http"
+	"backend-gmao/apps/analytics-service/internal/adapters/primary/eventbus"
 	sechttp "backend-gmao/apps/analytics-service/internal/adapters/secondary/http"
 	pgadapter "backend-gmao/apps/analytics-service/internal/adapters/secondary/postgres"
 	"backend-gmao/apps/analytics-service/internal/application/service"
+	pkgEventBus "backend-gmao/pkg/eventbus"
 	"backend-gmao/apps/analytics-service/internal/core/domain"
 	"backend-gmao/pkg/auth"
 	"backend-gmao/pkg/db"
@@ -54,11 +56,9 @@ func main() {
 	}
 
 	// --- Auto-Migrate Tables ---
-	log.Println("Running database migrations...")
-	if err := database.AutoMigrate(&domain.Metric{}, &domain.AssetKpiState{}); err != nil {
-		log.Fatalf("Failed to migrate Metric table: %v", err)
+	if err := pgadapter.AutoMigrate(database); err != nil {
+		log.Fatalf("Failed to run CQRS migrations: %v", err)
 	}
-	log.Println("Database migrations completed")
 
 	// --- Seed Default Data ---
 	pgadapter.Seed(database)
@@ -88,8 +88,25 @@ func main() {
 	// --- Internal Clients ---
 	assetClient := sechttp.NewAssetClient(jwtManager)
 
+	// --- Event Bus ---
+	rabbitURL := getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+	bus, err := pkgEventBus.NewRabbitMQBus(rabbitURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
+	}
+	defer bus.Close()
+
 	// --- Application Services ---
 	analyticsService := service.NewAnalyticsService(metricRepo, kpiRepo, assetClient)
+
+	// --- Background Refresh ---
+	analyticsService.StartBackgroundRefresher(context.Background())
+
+	// --- Consumers ---
+	consumer := eventbus.NewAnalyticsConsumer(bus, kpiRepo)
+	if err := consumer.Start(context.Background()); err != nil {
+		log.Fatalf("Failed to start event consumer: %v", err)
+	}
 
 	// --- Register with Consul ---
 	err = registry.Register(serviceID, serviceName, host, port)

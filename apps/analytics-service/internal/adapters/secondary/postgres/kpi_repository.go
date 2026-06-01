@@ -2,12 +2,12 @@ package postgres
 
 import (
 	"context"
-	"errors"
 
 	"backend-gmao/apps/analytics-service/internal/core/domain"
 	"backend-gmao/apps/analytics-service/internal/core/ports/secondary"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type kpiRepository struct {
@@ -19,62 +19,56 @@ func NewKpiRepository(db *gorm.DB) secondary.KpiRepository {
 	return &kpiRepository{db: db}
 }
 
-func (r *kpiRepository) GetByAssetID(ctx context.Context, assetID uuid.UUID) (*domain.AssetKpiState, error) {
-	var state domain.AssetKpiState
-	result := r.db.WithContext(ctx).Where("asset_id = ?", assetID).First(&state)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return nil, nil // Return nil if not found, let service handle creation
-		}
-		return nil, result.Error
+func (r *kpiRepository) UpsertAssetDim(ctx context.Context, dim *domain.AnalyticsAssetDim) error {
+	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "asset_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"model_id", "category_name"}),
+	}).Create(dim).Error
+}
+
+func (r *kpiRepository) InsertStateEvent(ctx context.Context, event *domain.AnalyticsStateEvent) error {
+	return r.db.WithContext(ctx).Create(event).Error
+}
+
+func (r *kpiRepository) UpsertMaintenanceEvent(ctx context.Context, event *domain.AnalyticsMaintenanceEvent) error {
+	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "work_order_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"status", "completed_at"}),
+	}).Create(event).Error
+}
+
+func (r *kpiRepository) RefreshMaterializedViews(ctx context.Context) error {
+	return r.db.WithContext(ctx).Exec("REFRESH MATERIALIZED VIEW category_health_metrics_daily").Error
+}
+
+func (r *kpiRepository) GetCategoryHealthMetrics(ctx context.Context) ([]domain.CategoryHealthMetrics, error) {
+	type ViewRow struct {
+		CategoryName string
+		AssetCount   int
+		MttrHours    float64
+		Availability float64
 	}
-	return &state, nil
-}
-
-func (r *kpiRepository) Save(ctx context.Context, state *domain.AssetKpiState) error {
-	return r.db.WithContext(ctx).Save(state).Error
-}
-
-func (r *kpiRepository) GetCategoryAggregates(ctx context.Context, category string) (int, float64, error) {
-	var result struct {
-		TotalBreakdowns int
-		TotalRepairTime float64
+	var rows []ViewRow
+	err := r.db.WithContext(ctx).Raw("SELECT category_name, asset_count, mttr_hours, availability FROM category_health_metrics_daily").Scan(&rows).Error
+	if err != nil {
+		return nil, err
 	}
-	err := r.db.WithContext(ctx).
-		Model(&domain.AssetKpiState{}).
-		Where("asset_category = ?", category).
-		Select("COALESCE(SUM(total_breakdowns), 0) as total_breakdowns, COALESCE(SUM(total_repair_time), 0) as total_repair_time").
-		Scan(&result).Error
-	return result.TotalBreakdowns, result.TotalRepairTime, err
-}
 
-func (r *kpiRepository) GetGlobalAggregates(ctx context.Context) (int, float64, error) {
-	var result struct {
-		TotalBreakdowns int
-		TotalRepairTime float64
+	var results []domain.CategoryHealthMetrics
+	for _, row := range rows {
+		results = append(results, domain.CategoryHealthMetrics{
+			CategoryName: row.CategoryName,
+			AssetCount:   row.AssetCount,
+			Metrics: domain.CoreMetrics{
+				Availability: row.Availability,
+				MTTR:         row.MttrHours,
+			},
+		})
 	}
-	err := r.db.WithContext(ctx).
-		Model(&domain.AssetKpiState{}).
-		Select("COALESCE(SUM(total_breakdowns), 0) as total_breakdowns, COALESCE(SUM(total_repair_time), 0) as total_repair_time").
-		Scan(&result).Error
-	return result.TotalBreakdowns, result.TotalRepairTime, err
+	return results, nil
 }
 
-func (r *kpiRepository) GetTotalOperatingTimeByCategory(ctx context.Context, category string) (float64, error) {
-	var totalHours float64
-	err := r.db.WithContext(ctx).
-		Model(&domain.AssetKpiState{}).
-		Where("asset_category = ?", category).
-		Select("COALESCE(SUM(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - purchase_date)) / 3600), 0)").
-		Scan(&totalHours).Error
-	return totalHours, err
-}
-
-func (r *kpiRepository) GetTotalOperatingTimeGlobal(ctx context.Context) (float64, error) {
-	var totalHours float64
-	err := r.db.WithContext(ctx).
-		Model(&domain.AssetKpiState{}).
-		Select("COALESCE(SUM(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - purchase_date)) / 3600), 0)").
-		Scan(&totalHours).Error
-	return totalHours, err
+func (r *kpiRepository) GetAssetHealthMetrics(ctx context.Context, assetID uuid.UUID) (*domain.AssetHealthMetrics, error) {
+	// Placeholder for individual asset metrics
+	return &domain.AssetHealthMetrics{AssetID: assetID}, nil
 }
