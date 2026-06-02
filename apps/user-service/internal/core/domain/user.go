@@ -84,6 +84,20 @@ func (u *User) ToResponse() UserResponse {
 	return resp
 }
 
+// CompactUserResponse is a lightweight DTO for dropdowns.
+type CompactUserResponse struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+// ToCompactResponse converts a User to a CompactUserResponse.
+func (u *User) ToCompactResponse() CompactUserResponse {
+	return CompactUserResponse{
+		ID:   u.ID,
+		Name: u.FullName,
+	}
+}
+
 // InternalUserResponse is the DTO used for inter-service communication.
 // It includes the hashed password for authentication verification.
 type InternalUserResponse struct {

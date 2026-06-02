@@ -96,6 +96,21 @@ func (s *RoleService) ListRoles(ctx context.Context) ([]domain.RoleResponse, err
 	return responses, nil
 }
 
+// GetCompactRoles returns a lightweight list of roles.
+func (s *RoleService) GetCompactRoles(ctx context.Context) ([]domain.CompactRoleResponse, error) {
+	roles, err := s.roleRepo.FindAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list compact roles: %w", err)
+	}
+
+	responses := make([]domain.CompactRoleResponse, 0, len(roles))
+	for _, r := range roles {
+		responses = append(responses, r.ToCompactResponse())
+	}
+
+	return responses, nil
+}
+
 // UpdateRole updates an existing role's name and/or description.
 func (s *RoleService) UpdateRole(ctx context.Context, id uuid.UUID, req domain.UpdateRoleRequest) (*domain.RoleResponse, error) {
 	role, err := s.roleRepo.FindByID(ctx, id)

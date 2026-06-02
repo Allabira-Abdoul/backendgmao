@@ -43,6 +43,20 @@ func (e *Team) ToResponse() TeamResponse {
 	}
 }
 
+// CompactTeamResponse is a lightweight DTO for dropdowns.
+type CompactTeamResponse struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+// ToCompactResponse converts a Team to a CompactTeamResponse.
+func (t *Team) ToCompactResponse() CompactTeamResponse {
+	return CompactTeamResponse{
+		ID:   t.ID,
+		Name: t.Name,
+	}
+}
+
 // CreateTeamRequest is the DTO for creating a new team.
 type CreateTeamRequest struct {
 	Name        string  `json:"name" binding:"required,min=2,max=255"`

@@ -33,6 +33,16 @@ func (h *RoleHandler) ListRoles(c *gin.Context) {
 	response.Success(c, http.StatusOK, roles)
 }
 
+// GetCompactRoles handles GET /roles/compact
+func (h *RoleHandler) GetCompactRoles(c *gin.Context) {
+	roles, err := h.roleService.GetCompactRoles(c.Request.Context())
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list compact roles")
+		return
+	}
+	response.Success(c, http.StatusOK, roles)
+}
+
 // GetRole handles GET /roles/:id
 func (h *RoleHandler) GetRole(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))

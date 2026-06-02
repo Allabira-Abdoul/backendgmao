@@ -139,6 +139,21 @@ func (s *UserService) ListUsers(ctx context.Context, limit, offset int) ([]domai
 	return responses, total, nil
 }
 
+// GetCompactUsers returns a lightweight list of users.
+func (s *UserService) GetCompactUsers(ctx context.Context) ([]domain.CompactUserResponse, error) {
+	users, _, err := s.userRepo.FindAll(ctx, 0, 1000) // 1000 max for dropdowns
+	if err != nil {
+		return nil, fmt.Errorf("failed to list compact users: %w", err)
+	}
+
+	responses := make([]domain.CompactUserResponse, 0, len(users))
+	for _, u := range users {
+		responses = append(responses, u.ToCompactResponse())
+	}
+
+	return responses, nil
+}
+
 // UpdateUser updates an existing user's fields.
 func (s *UserService) UpdateUser(ctx context.Context, id uuid.UUID, req domain.UpdateUserRequest) (*domain.UserResponse, error) {
 	user, err := s.userRepo.FindByID(ctx, id)

@@ -36,6 +36,16 @@ func (h *TeamHandler) ListTeams(c *gin.Context) {
 	response.SuccessWithMeta(c, http.StatusOK, teams, response.NewMeta(pagination.Page, pagination.PerPage, total))
 }
 
+// GetCompactTeams handles GET /teams/compact
+func (h *TeamHandler) GetCompactTeams(c *gin.Context) {
+	teams, err := h.teamService.GetCompactTeams(c.Request.Context())
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list compact teams")
+		return
+	}
+	response.Success(c, http.StatusOK, teams)
+}
+
 func (h *TeamHandler) CreateTeam(c *gin.Context) {
 	var req domain.CreateTeamRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

@@ -38,10 +38,14 @@ func RegisterRoutes(
 		authenticated.GET("/users/me", userHandler.GetCurrentUser)
 		authenticated.POST("/users/me/change-password", userHandler.ChangePassword)
 
+		// Privileges for roles
+		authenticated.GET("/privileges", middleware.RequireAnyPrivilege(domain.PrivilegeRoleView, domain.PrivilegeRoleCreate, domain.PrivilegeRoleUpdate), roleHandler.ListPrivileges)
+
 		// User CRUD (privilege-protected)
 		users := authenticated.Group("/users")
 		{
 			users.GET("", middleware.RequirePrivilege(domain.PrivilegeUserView), userHandler.ListUsers)
+			users.GET("/compact", middleware.RequirePrivilege(domain.PrivilegeUserView), userHandler.GetCompactUsers)
 			users.GET("/:id", userHandler.GetUser)
 			users.POST("", middleware.RequirePrivilege(domain.PrivilegeUserCreate), userHandler.CreateUser)
 			users.PUT("/:id", middleware.RequirePrivilege(domain.PrivilegeUserUpdate), userHandler.UpdateUser)
@@ -53,6 +57,7 @@ func RegisterRoutes(
 		roles := authenticated.Group("/roles")
 		{
 			roles.GET("", middleware.RequirePrivilege(domain.PrivilegeRoleView), roleHandler.ListRoles)
+			roles.GET("/compact", middleware.RequireAnyPrivilege(domain.PrivilegeRoleView, domain.PrivilegeUserCreate, domain.PrivilegeUserUpdate), roleHandler.GetCompactRoles)
 			roles.GET("/:id", middleware.RequirePrivilege(domain.PrivilegeRoleView), roleHandler.GetRole)
 			roles.POST("", middleware.RequirePrivilege(domain.PrivilegeRoleCreate), roleHandler.CreateRole)
 			roles.PUT("/:id", middleware.RequirePrivilege(domain.PrivilegeRoleUpdate), roleHandler.UpdateRole)
@@ -65,6 +70,7 @@ func RegisterRoutes(
 		teams := authenticated.Group("/teams")
 		{
 			teams.GET("", middleware.RequirePrivilege(domain.PrivilegeTeamView), teamHandler.ListTeams)
+			teams.GET("/compact", middleware.RequireAnyPrivilege(domain.PrivilegeTeamView, domain.PrivilegeUserCreate, domain.PrivilegeUserUpdate), teamHandler.GetCompactTeams)
 			teams.GET("/:id", middleware.RequirePrivilege(domain.PrivilegeTeamView), teamHandler.GetTeam)
 			teams.POST("", middleware.RequirePrivilege(domain.PrivilegeTeamCreate), teamHandler.CreateTeam)
 			teams.PUT("/:id", middleware.RequirePrivilege(domain.PrivilegeTeamUpdate), teamHandler.UpdateTeam)

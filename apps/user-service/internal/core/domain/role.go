@@ -88,6 +88,20 @@ func (r *Role) ToResponse() RoleResponse {
 	}
 }
 
+// CompactRoleResponse is a lightweight DTO for dropdowns.
+type CompactRoleResponse struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+// ToCompactResponse converts a Role to a CompactRoleResponse.
+func (r *Role) ToCompactResponse() CompactRoleResponse {
+	return CompactRoleResponse{
+		ID:   r.ID,
+		Name: r.Name,
+	}
+}
+
 // GetPrivilegeStrings extracts the privilege names from the role.
 func (r *Role) GetPrivilegeStrings() []string {
 	if len(r.Privileges) > 0 {

@@ -93,6 +93,21 @@ func (s *TeamService) ListTeams(ctx context.Context, limit, offset int) ([]domai
 	return responses, total, nil
 }
 
+// GetCompactTeams returns a lightweight list of teams.
+func (s *TeamService) GetCompactTeams(ctx context.Context) ([]domain.CompactTeamResponse, error) {
+	teams, _, err := s.teamRepo.FindAll(ctx, 1000, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list compact teams: %w", err)
+	}
+
+	responses := make([]domain.CompactTeamResponse, 0, len(teams))
+	for _, t := range teams {
+		responses = append(responses, t.ToCompactResponse())
+	}
+
+	return responses, nil
+}
+
 // UpdateTeam updates an existing team's name and/or description.
 func (s *TeamService) UpdateTeam(ctx context.Context, id uuid.UUID, req domain.UpdateTeamRequest) (*domain.TeamResponse, error) {
 	team, err := s.teamRepo.FindByID(ctx, id)

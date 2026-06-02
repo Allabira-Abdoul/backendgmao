@@ -39,6 +39,16 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 	response.SuccessWithMeta(c, http.StatusOK, users, response.NewMeta(pagination.Page, pagination.PerPage, total))
 }
 
+// GetCompactUsers handles GET /users/compact
+func (h *UserHandler) GetCompactUsers(c *gin.Context) {
+	users, err := h.userService.GetCompactUsers(c.Request.Context())
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list compact users")
+		return
+	}
+	response.Success(c, http.StatusOK, users)
+}
+
 // GetUser handles GET /users/:id
 func (h *UserHandler) GetUser(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
