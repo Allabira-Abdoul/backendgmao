@@ -69,6 +69,7 @@ func (s *UserService) CreateUser(ctx context.Context, req domain.CreateUserReque
 		Email:    req.Email,
 		Password: hashedPassword,
 		Status:   domain.StatusActive,
+		MustChangePassword: true,
 		RoleID:   roleID,
 	}
 
