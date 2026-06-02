@@ -19,7 +19,7 @@ Write-Host "==========================================================" -Foregro
 
 # 1. Start Docker infrastructure (Postgres and Consul)
 Write-Host "Spin up Postgres, Consul, and RabbitMQ containers..." -ForegroundColor Yellow
-docker compose -f deploy/docker-compose.yml up -d consul postgres rabbitmq
+docker compose -f deploy/docker-compose.yml up -d rabbitmq
 
 # Wait for Postgres health check
 Write-Host "Waiting 6 seconds for database to initialize..." -ForegroundColor Yellow
