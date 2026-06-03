@@ -18,13 +18,11 @@ func Seed(db *gorm.DB) {
 		&domain.EquipmentInstance{},
 		&domain.PartInstance{},
 		&domain.MetricThreshold{},
+		&domain.Supplier{},
+		&domain.ModelSupplier{},
+		&domain.PartConsumptionLog{},
+		&domain.Measurement{},
 	)
-
-	var count int64
-	db.Model(&domain.EquipmentModel{}).Count(&count)
-	if count > 0 {
-		return
-	}
 
 	log.Println("Seeding airport equipment data...")
 
@@ -66,89 +64,144 @@ func Seed(db *gorm.DB) {
 
 	// Pushback Tractor PT1
 	pt1 := createEquipmentInstance(db, "PT-001", pushbackModel.ID, "OPERATIONAL", "Gate 10 Apron", now.AddDate(-3, 0, 0), 120000.0)
-	createPartInstance(db, pt1.ID, tugEngine.ID)
-	createPartInstance(db, pt1.ID, tugTire.ID)
-	createPartInstance(db, pt1.ID, tugTire.ID)
-	createPartInstance(db, pt1.ID, tugTire.ID)
-	createPartInstance(db, pt1.ID, tugTire.ID)
-	createPartInstance(db, pt1.ID, tugPin.ID)
+	createPartInstance(db, pt1.ID, tugEngine.ID, "SN-PT1-ENG")
+	createPartInstance(db, pt1.ID, tugTire.ID, "SN-PT1-TIR1")
+	createPartInstance(db, pt1.ID, tugTire.ID, "SN-PT1-TIR2")
+	createPartInstance(db, pt1.ID, tugTire.ID, "SN-PT1-TIR3")
+	createPartInstance(db, pt1.ID, tugTire.ID, "SN-PT1-TIR4")
+	createPartInstance(db, pt1.ID, tugPin.ID, "SN-PT1-PIN")
 
 	// Pushback Tractor PT2 (In Maintenance)
 	pt2 := createEquipmentInstance(db, "PT-002", pushbackModel.ID, "DOWN", "Maintenance Hangar", now.AddDate(-1, -6, 0), 125000.0)
-	createPartInstance(db, pt2.ID, tugEngine.ID)
-	createPartInstance(db, pt2.ID, tugPin.ID)
+	createPartInstance(db, pt2.ID, tugEngine.ID, "SN-PT2-ENG")
+	createPartInstance(db, pt2.ID, tugPin.ID, "SN-PT2-PIN")
 
 	// GPU 1
 	gpu1 := createEquipmentInstance(db, "GPU-1A", gpuModel.ID, "OPERATIONAL", "Gate 12", now.AddDate(0, -2, 0), 45000.0)
-	createPartInstance(db, gpu1.ID, gpuGenerator.ID)
-	createPartInstance(db, gpu1.ID, gpuCable.ID)
+	createPartInstance(db, gpu1.ID, gpuGenerator.ID, "SN-GPU1-GEN")
+	createPartInstance(db, gpu1.ID, gpuCable.ID, "SN-GPU1-CAB")
 
 	// Jetway 1
 	jet1 := createEquipmentInstance(db, "GATE-10-BRIDGE", jetwayModel.ID, "OPERATIONAL", "Terminal 1 Gate 10", now.AddDate(-5, 0, 0), 850000.0)
-	createPartInstance(db, jet1.ID, jetwayCanopy.ID)
-	createPartInstance(db, jet1.ID, jetwayConsole.ID)
+	createPartInstance(db, jet1.ID, jetwayCanopy.ID, "SN-JET1-CAN")
+	createPartInstance(db, jet1.ID, jetwayConsole.ID, "SN-JET1-CON")
 
 	// Runway Sweeper
 	sweep1 := createEquipmentInstance(db, "SWP-R1", sweeperModel.ID, "OPERATIONAL", "Airfield Garage", now.AddDate(-2, -3, 0), 210000.0)
-	createPartInstance(db, sweep1.ID, sweeperBrush.ID)
-	createPartInstance(db, sweep1.ID, sweeperBrush.ID)
+	createPartInstance(db, sweep1.ID, sweeperBrush.ID, "SN-SWP1-BRU1")
+	createPartInstance(db, sweep1.ID, sweeperBrush.ID, "SN-SWP1-BRU2")
 
 	// Create instances for other models to avoid "declared and not used" errors
 	createEquipmentInstance(db, "BLT-100", beltLoaderModel.ID, "OPERATIONAL", "Apron 2", now, 60000.0)
 	createEquipmentInstance(db, "DEICE-1", deiceModel.ID, "IN_STOCK", "Winter Garage", now, 150000.0)
 	createEquipmentInstance(db, "SCAN-X1", scannerModel.ID, "OPERATIONAL", "Terminal 1 Security", now, 120000.0)
 	createEquipmentInstance(db, "CAR-ARR1", carouselModel.ID, "OPERATIONAL", "Arrivals Hall B", now, 250000.0)
-	createEquipmentInstance(db, "ILS-RWY09", ilsModel.ID, "OPERATIONAL", "Runway 09", now, 1500000.0)
+	ils1 := createEquipmentInstance(db, "ILS-RWY09", ilsModel.ID, "OPERATIONAL", "Runway 09", now, 1500000.0)
+
+	// 4. Create Suppliers & Model Suppliers
+	sup1 := createSupplier(db, "Global Aviation Parts", "contact@gap.com")
+	createModelSupplier(db, sup1.ID, &pushbackModel.ID, nil, "REF-GAP-PT", "DOC-123")
+	createModelSupplier(db, sup1.ID, nil, &tugEngine.ID, "REF-GAP-ENG", "DOC-ENG-123")
+
+	// 5. Create Metric Thresholds
+	createMetricThreshold(db, &pushbackModel.ID, nil, nil, nil, "Engine Temperature", nil, ptr(110.0), "Celsius")
+	createMetricThreshold(db, nil, nil, &gpu1.ID, nil, "Output Voltage", ptr(110.0), ptr(125.0), "Volts")
+
+	// 6. Create Measurements
+	createMeasurement(db, &pt1.ID, nil, "Engine Temperature", 85.5, "Celsius", now)
+	createMeasurement(db, &gpu1.ID, nil, "Output Voltage", 118.2, "Volts", now)
+
+	// 7. Create Part Consumption Logs
+	createPartConsumptionLog(db, tugTire.ID, 2, "Replaced 2 tires on PT-001")
+
+	_ = ils1
 
 	log.Println("Seeding airport equipment data completed")
 }
 
+func ptr(f float64) *float64 {
+	return &f
+}
+
 func createEquipmentModel(db *gorm.DB, name, category, desc string) domain.EquipmentModel {
-	m := domain.EquipmentModel{
-		ID:          uuid.New(),
-		Name:        name,
-		Category:    category,
-		Description: desc,
-	}
-	db.Create(&m)
+	var m domain.EquipmentModel
+	db.Where(domain.EquipmentModel{Name: name}).
+		Assign(domain.EquipmentModel{Category: category, Description: desc}).
+		FirstOrCreate(&m)
 	return m
 }
 
 func createPartModel(db *gorm.DB, name, category string, qty int) domain.PartModel {
-	p := domain.PartModel{
-		ID:            uuid.New(),
-		Name:          name,
-		Category:      category,
-		SpareQuantity: qty,
-		IsSerialized:  true,
-	}
-	db.Create(&p)
+	var p domain.PartModel
+	db.Where(domain.PartModel{Name: name}).
+		Assign(domain.PartModel{Category: category, SpareQuantity: qty, IsSerialized: true}).
+		FirstOrCreate(&p)
 	return p
 }
 
 func createEquipmentInstance(db *gorm.DB, code string, modelID uuid.UUID, status, location string, date time.Time, value float64) domain.EquipmentInstance {
-	i := domain.EquipmentInstance{
-		ID:               uuid.New(),
-		Code:             code,
-		EquipmentModelID: modelID,
-		Status:           status,
-		Location:         location,
-		PurchaseDate:     date,
-		PurchaseValue:    value,
-	}
-	db.Create(&i)
+	var i domain.EquipmentInstance
+	db.Where(domain.EquipmentInstance{Code: code}).
+		Assign(domain.EquipmentInstance{EquipmentModelID: modelID, Status: status, Location: location, PurchaseDate: date, PurchaseValue: value}).
+		FirstOrCreate(&i)
 	return i
 }
 
-func createPartInstance(db *gorm.DB, eqInstID, partModelID uuid.UUID) domain.PartInstance {
-	p := domain.PartInstance{
-		ID:                  uuid.New(),
-		EquipmentInstanceID: &eqInstID,
-		PartModelID:         partModelID,
-		SerialNumber:        "SN-" + uuid.NewString()[:8],
-		Status:              "OPERATIONAL",
-		CurrentLocation:     "Installed",
-	}
-	db.Create(&p)
+func createPartInstance(db *gorm.DB, eqInstID, partModelID uuid.UUID, sn string) domain.PartInstance {
+	var p domain.PartInstance
+	db.Where(domain.PartInstance{SerialNumber: sn}).
+		Assign(domain.PartInstance{EquipmentInstanceID: &eqInstID, PartModelID: partModelID, Status: "OPERATIONAL", CurrentLocation: "Installed"}).
+		FirstOrCreate(&p)
 	return p
+}
+
+func createSupplier(db *gorm.DB, name, contactInfo string) domain.Supplier {
+	var s domain.Supplier
+	db.Where(domain.Supplier{Name: name}).
+		Assign(domain.Supplier{ContactInfo: contactInfo}).
+		FirstOrCreate(&s)
+	return s
+}
+
+func createModelSupplier(db *gorm.DB, supplierID uuid.UUID, eqModelID, partModelID *uuid.UUID, refCode, docRef string) domain.ModelSupplier {
+	var ms domain.ModelSupplier
+	db.Where(domain.ModelSupplier{SupplierID: supplierID, EquipmentModelID: eqModelID, PartModelID: partModelID}).
+		Assign(domain.ModelSupplier{SupplierReferenceCode: refCode, TechnicalDocReference: docRef}).
+		FirstOrCreate(&ms)
+	return ms
+}
+
+func createMetricThreshold(db *gorm.DB, eqModelID, partModelID, eqInstID, partInstID *uuid.UUID, metric string, min, max *float64, unit string) domain.MetricThreshold {
+	var t domain.MetricThreshold
+	db.Where(domain.MetricThreshold{
+		EquipmentModelID:    eqModelID,
+		PartModelID:         partModelID,
+		EquipmentInstanceID: eqInstID,
+		PartInstanceID:      partInstID,
+		MetricName:          metric,
+	}).Assign(domain.MetricThreshold{MinValue: min, MaxValue: max, Unit: unit}).
+		FirstOrCreate(&t)
+	return t
+}
+
+func createMeasurement(db *gorm.DB, eqInstID, partInstID *uuid.UUID, metric string, value float64, unit string, recordedAt time.Time) domain.Measurement {
+	var m domain.Measurement
+	recordedAt = recordedAt.Truncate(time.Second)
+	db.Where(domain.Measurement{
+		EquipmentInstanceID: eqInstID,
+		PartInstanceID:      partInstID,
+		MetricName:          metric,
+		RecordedAt:          recordedAt,
+	}).Assign(domain.Measurement{Value: value, Unit: unit}).
+		FirstOrCreate(&m)
+	return m
+}
+
+func createPartConsumptionLog(db *gorm.DB, partModelID uuid.UUID, qty int, notes string) domain.PartConsumptionLog {
+	var l domain.PartConsumptionLog
+	db.Where(domain.PartConsumptionLog{PartModelID: partModelID, Notes: notes}).
+		Attrs(domain.PartConsumptionLog{ConsumedBy: uuid.New()}).
+		Assign(domain.PartConsumptionLog{QuantityUsed: qty}).
+		FirstOrCreate(&l)
+	return l
 }
