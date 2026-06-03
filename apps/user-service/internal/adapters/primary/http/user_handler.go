@@ -96,7 +96,11 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 
 // GetCurrentUser handles GET /users/me
 func (h *UserHandler) GetCurrentUser(c *gin.Context) {
-	userIDStr, _ := c.Get(middleware.ContextKeyUserID)
+	userIDStr, exists := c.Get(string(middleware.ContextKeyUserID))
+	if !exists || userIDStr == nil {
+		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "User ID not found in context")
+		return
+	}
 	userID, err := uuid.Parse(userIDStr.(string))
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_TOKEN", "Invalid user ID in token")
