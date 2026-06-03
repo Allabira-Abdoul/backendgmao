@@ -34,6 +34,7 @@ func (r *UserRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Us
 	result := r.db.WithContext(ctx).
 		Preload("Role").
 		Preload("Role.InternalPrivileges").
+		Preload("Team").
 		Where("id = ?", id).
 		First(&user)
 
@@ -49,6 +50,7 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*domain
 	result := r.db.WithContext(ctx).
 		Preload("Role").
 		Preload("Role.InternalPrivileges").
+		Preload("Team").
 		Where("email = ?", email).
 		First(&user)
 
@@ -90,6 +92,7 @@ func (r *UserRepository) FindAll(ctx context.Context, offset, limit int) ([]doma
 	result := r.db.WithContext(ctx).
 		Preload("Role").
 		Preload("Role.InternalPrivileges").
+		Preload("Team").
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").
