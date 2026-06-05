@@ -91,13 +91,13 @@ func (r *assetRepository) GetEquipmentInstances(ctx context.Context) ([]domain.E
 
 func (r *assetRepository) GetEquipmentInstanceByCode(ctx context.Context, code string) (*domain.EquipmentInstance, error) {
 	var instance domain.EquipmentInstance
-	err := r.db.WithContext(ctx).Preload("EquipmentModel").Preload("Parts").Preload("Parts.PartModel").Preload("Thresholds").First(&instance, "code = ?", code).Error
+	err := r.db.WithContext(ctx).Preload("EquipmentModel").Preload("EquipmentModel.Thresholds").Preload("Supplier").Preload("Parts").Preload("Parts.PartModel").Preload("Parts.PartModel.Thresholds").Preload("Parts.Supplier").Preload("Thresholds").First(&instance, "code = ?", code).Error
 	return &instance, err
 }
 
 func (r *assetRepository) GetEquipmentInstanceByID(ctx context.Context, id uuid.UUID) (*domain.EquipmentInstance, error) {
 	var instance domain.EquipmentInstance
-	err := r.db.WithContext(ctx).Preload("EquipmentModel").Preload("Parts").Preload("Parts.PartModel").Preload("Thresholds").First(&instance, "id = ?", id).Error
+	err := r.db.WithContext(ctx).Preload("EquipmentModel").Preload("EquipmentModel.Thresholds").Preload("Supplier").Preload("Parts").Preload("Parts.PartModel").Preload("Parts.PartModel.Thresholds").Preload("Parts.Supplier").Preload("Thresholds").First(&instance, "id = ?", id).Error
 	return &instance, err
 }
 
@@ -107,7 +107,7 @@ func (r *assetRepository) UpdateEquipmentInstance(ctx context.Context, instance 
 
 func (r *assetRepository) GetPartInstanceByID(ctx context.Context, id uuid.UUID) (*domain.PartInstance, error) {
 	var instance domain.PartInstance
-	err := r.db.WithContext(ctx).Preload("PartModel").Preload("Thresholds").First(&instance, "id = ?", id).Error
+	err := r.db.WithContext(ctx).Preload("PartModel").Preload("PartModel.Thresholds").Preload("Supplier").Preload("Thresholds").First(&instance, "id = ?", id).Error
 	return &instance, err
 }
 
