@@ -70,49 +70,49 @@ func Seed(db *gorm.DB) {
 	createEquipmentModelPartRequirement(db, jetwayModel.ID, jetwayConsole.ID, 1)
 	createEquipmentModelPartRequirement(db, sweeperModel.ID, sweeperBrush.ID, 2)
 
-	// 3. Create Equipment Instances and assign Part Instances
-	now := time.Now()
-
-	// Pushback Tractor PT1
-	pt1 := createEquipmentInstance(db, "PT-001", pushbackModel.ID, "OPERATIONAL", "DLA")
-	createPartInstance(db, pt1.ID, tugEngine.ID, "SN-PT1-ENG")
-	createPartInstance(db, pt1.ID, tugTire.ID, "SN-PT1-TIR1")
-	createPartInstance(db, pt1.ID, tugTire.ID, "SN-PT1-TIR2")
-	createPartInstance(db, pt1.ID, tugTire.ID, "SN-PT1-TIR3")
-	createPartInstance(db, pt1.ID, tugTire.ID, "SN-PT1-TIR4")
-	createPartInstance(db, pt1.ID, tugPin.ID, "SN-PT1-PIN")
-
-	// Pushback Tractor PT2 (In Maintenance)
-	pt2 := createEquipmentInstance(db, "PT-002", pushbackModel.ID, "DOWN", "NSI")
-	createPartInstance(db, pt2.ID, tugEngine.ID, "SN-PT2-ENG")
-	createPartInstance(db, pt2.ID, tugPin.ID, "SN-PT2-PIN")
-
-	// GPU 1
-	gpu1 := createEquipmentInstance(db, "GPU-1A", gpuModel.ID, "OPERATIONAL", "GOU")
-	createPartInstance(db, gpu1.ID, gpuGenerator.ID, "SN-GPU1-GEN")
-	createPartInstance(db, gpu1.ID, gpuCable.ID, "SN-GPU1-CAB")
-
-	// Jetway 1
-	jet1 := createEquipmentInstance(db, "GATE-10-BRIDGE", jetwayModel.ID, "OPERATIONAL", "DLA")
-	createPartInstance(db, jet1.ID, jetwayCanopy.ID, "SN-JET1-CAN")
-	createPartInstance(db, jet1.ID, jetwayConsole.ID, "SN-JET1-CON")
-
-	// Runway Sweeper
-	sweep1 := createEquipmentInstance(db, "SWP-R1", sweeperModel.ID, "OPERATIONAL", "BPC")
-	createPartInstance(db, sweep1.ID, sweeperBrush.ID, "SN-SWP1-BRU1")
-	createPartInstance(db, sweep1.ID, sweeperBrush.ID, "SN-SWP1-BRU2")
-
-	// Create instances for other models to avoid "declared and not used" errors
-	createEquipmentInstance(db, "BLT-100", beltLoaderModel.ID, "OPERATIONAL", "MVR")
-	createEquipmentInstance(db, "DEICE-1", deiceModel.ID, "IN_STOCK", "NGE")
-	createEquipmentInstance(db, "SCAN-X1", scannerModel.ID, "OPERATIONAL", "DLA")
-	createEquipmentInstance(db, "CAR-ARR1", carouselModel.ID, "OPERATIONAL", "DLA")
-	ils1 := createEquipmentInstance(db, "ILS-RWY09", ilsModel.ID, "OPERATIONAL", "DLA")
-
 	// 4. Create Suppliers & Model Suppliers
 	sup1 := createSupplier(db, "Global Aviation Parts", "contact@gap.com")
 	createModelSupplier(db, sup1.ID, &pushbackModel.ID, nil, "REF-GAP-PT", "DOC-123")
 	createModelSupplier(db, sup1.ID, nil, &tugEngine.ID, "REF-GAP-ENG", "DOC-ENG-123")
+
+	// 3. Create Equipment Instances and assign Part Instances (Now with supplier)
+	now := time.Now()
+
+	// Pushback Tractor PT1
+	pt1 := createEquipmentInstance(db, "PT-001", pushbackModel.ID, &sup1.ID, "OPERATIONAL", "DLA")
+	createPartInstance(db, pt1.ID, tugEngine.ID, &sup1.ID, "SN-PT1-ENG")
+	createPartInstance(db, pt1.ID, tugTire.ID, nil, "SN-PT1-TIR1")
+	createPartInstance(db, pt1.ID, tugTire.ID, nil, "SN-PT1-TIR2")
+	createPartInstance(db, pt1.ID, tugTire.ID, nil, "SN-PT1-TIR3")
+	createPartInstance(db, pt1.ID, tugTire.ID, nil, "SN-PT1-TIR4")
+	createPartInstance(db, pt1.ID, tugPin.ID, nil, "SN-PT1-PIN")
+
+	// Pushback Tractor PT2 (In Maintenance)
+	pt2 := createEquipmentInstance(db, "PT-002", pushbackModel.ID, &sup1.ID, "DOWN", "NSI")
+	createPartInstance(db, pt2.ID, tugEngine.ID, &sup1.ID, "SN-PT2-ENG")
+	createPartInstance(db, pt2.ID, tugPin.ID, nil, "SN-PT2-PIN")
+
+	// GPU 1
+	gpu1 := createEquipmentInstance(db, "GPU-1A", gpuModel.ID, nil, "OPERATIONAL", "GOU")
+	createPartInstance(db, gpu1.ID, gpuGenerator.ID, nil, "SN-GPU1-GEN")
+	createPartInstance(db, gpu1.ID, gpuCable.ID, nil, "SN-GPU1-CAB")
+
+	// Jetway 1
+	jet1 := createEquipmentInstance(db, "GATE-10-BRIDGE", jetwayModel.ID, nil, "OPERATIONAL", "DLA")
+	createPartInstance(db, jet1.ID, jetwayCanopy.ID, nil, "SN-JET1-CAN")
+	createPartInstance(db, jet1.ID, jetwayConsole.ID, nil, "SN-JET1-CON")
+
+	// Runway Sweeper
+	sweep1 := createEquipmentInstance(db, "SWP-R1", sweeperModel.ID, nil, "OPERATIONAL", "BPC")
+	createPartInstance(db, sweep1.ID, sweeperBrush.ID, nil, "SN-SWP1-BRU1")
+	createPartInstance(db, sweep1.ID, sweeperBrush.ID, nil, "SN-SWP1-BRU2")
+
+	// Create instances for other models to avoid "declared and not used" errors
+	createEquipmentInstance(db, "BLT-100", beltLoaderModel.ID, nil, "OPERATIONAL", "MVR")
+	createEquipmentInstance(db, "DEICE-1", deiceModel.ID, nil, "OPERATIONAL", "NGE")
+	createEquipmentInstance(db, "SCAN-X1", scannerModel.ID, nil, "OPERATIONAL", "DLA")
+	createEquipmentInstance(db, "CAR-ARR1", carouselModel.ID, nil, "OPERATIONAL", "DLA")
+	ils1 := createEquipmentInstance(db, "ILS-RWY09", ilsModel.ID, nil, "OPERATIONAL", "DLA")
 
 	// 5. Create Metric Thresholds
 	createMetricThreshold(db, &pushbackModel.ID, nil, nil, nil, "Engine Temperature", nil, ptr(110.0), "Celsius")
@@ -150,18 +150,18 @@ func createPartModel(db *gorm.DB, name, category string, qty int) domain.PartMod
 	return p
 }
 
-func createEquipmentInstance(db *gorm.DB, code string, modelID uuid.UUID, status, location string) domain.EquipmentInstance {
+func createEquipmentInstance(db *gorm.DB, code string, modelID uuid.UUID, supplierID *uuid.UUID, status, location string) domain.EquipmentInstance {
 	var i domain.EquipmentInstance
 	db.Where(domain.EquipmentInstance{Code: code}).
-		Assign(domain.EquipmentInstance{EquipmentModelID: modelID, Status: status, Location: location}).
+		Assign(domain.EquipmentInstance{EquipmentModelID: modelID, SupplierID: supplierID, Status: status, Location: location}).
 		FirstOrCreate(&i)
 	return i
 }
 
-func createPartInstance(db *gorm.DB, eqInstID, partModelID uuid.UUID, sn string) domain.PartInstance {
+func createPartInstance(db *gorm.DB, eqInstID, partModelID uuid.UUID, supplierID *uuid.UUID, sn string) domain.PartInstance {
 	var p domain.PartInstance
 	db.Where(domain.PartInstance{SerialNumber: sn}).
-		Assign(domain.PartInstance{EquipmentInstanceID: &eqInstID, PartModelID: partModelID, Status: "OPERATIONAL", CurrentLocation: "Installed"}).
+		Assign(domain.PartInstance{EquipmentInstanceID: &eqInstID, PartModelID: partModelID, SupplierID: supplierID, Status: "OPERATIONAL", CurrentLocation: "Installed"}).
 		FirstOrCreate(&p)
 	return p
 }

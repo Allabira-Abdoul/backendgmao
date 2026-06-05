@@ -48,3 +48,19 @@ func (t *MetricThreshold) ToResponse() MetricThresholdResponse {
 		UpdatedAt:  t.UpdatedAt,
 	}
 }
+
+type CreateMetricThresholdRequest struct {
+	EquipmentModelID    *uuid.UUID `json:"equipment_model_id"`
+	PartModelID         *uuid.UUID `json:"part_model_id"`
+	EquipmentInstanceID *uuid.UUID `json:"equipment_instance_id"`
+	PartInstanceID      *uuid.UUID `json:"part_instance_id"`
+	MetricName          string     `json:"metric_name" binding:"required"`
+	MinValue            *float64   `json:"min_value"`
+	MaxValue            *float64   `json:"max_value"`
+	Unit                string     `json:"unit" binding:"required"`
+}
+
+type UpdateMetricThresholdRequest struct {
+	MinValue *float64 `json:"min_value"`
+	MaxValue *float64 `json:"max_value"`
+}

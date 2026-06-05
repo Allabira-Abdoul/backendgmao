@@ -32,6 +32,8 @@ func RegisterRoutes(
 			models.GET("/equipment", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetEquipmentModels)
 			models.GET("/parts", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetPartModels)
 
+			models.PUT("/equipment/:id", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.UpdateEquipmentModel)
+			models.PUT("/parts/:id", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.UpdatePartModel)
 			models.POST("/equipment/:id/suppliers", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.AddSupplierToEquipmentModel)
 			models.POST("/parts/:id/suppliers", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.AddSupplierToPartModel)
 		}
@@ -40,6 +42,8 @@ func RegisterRoutes(
 		{
 			suppliers.POST("", middleware.RequirePrivilege("ASSET_CREATE"), assetHandler.CreateSupplier)
 			suppliers.GET("", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetSuppliers)
+			suppliers.PUT("/:id", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.UpdateSupplier)
+			suppliers.DELETE("/:id", middleware.RequirePrivilege("ASSET_DELETE"), assetHandler.DeleteSupplier)
 		}
 
 		instances := authenticated.Group("/instances")
@@ -62,6 +66,13 @@ func RegisterRoutes(
 		{
 			measurements.POST("", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.IngestMeasurement)
 			measurements.GET("/:targetType/:targetID", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetMeasurements)
+		}
+
+		thresholds := authenticated.Group("/thresholds")
+		{
+			thresholds.POST("", middleware.RequirePrivilege("ASSET_CREATE"), assetHandler.CreateMetricThreshold)
+			thresholds.PUT("/:id", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.UpdateMetricThreshold)
+			thresholds.DELETE("/:id", middleware.RequirePrivilege("ASSET_DELETE"), assetHandler.DeleteMetricThreshold)
 		}
 	}
 }

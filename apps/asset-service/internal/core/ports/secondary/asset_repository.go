@@ -17,10 +17,16 @@ type AssetRepository interface {
 	GetPartModelByID(ctx context.Context, id uuid.UUID) (*domain.PartModel, error)
 	UpdatePartModel(ctx context.Context, model *domain.PartModel) error
 
+	UpdateEquipmentModel(ctx context.Context, model *domain.EquipmentModel) error
+	CreateEquipmentModelPartRequirement(ctx context.Context, req *domain.EquipmentModelPartRequirement) error
+	DeleteEquipmentModelPartRequirements(ctx context.Context, modelID uuid.UUID) error
+
 	// Suppliers
 	CreateSupplier(ctx context.Context, supplier *domain.Supplier) error
 	GetSuppliers(ctx context.Context) ([]domain.Supplier, error)
 	GetSupplierByID(ctx context.Context, id uuid.UUID) (*domain.Supplier, error)
+	UpdateSupplier(ctx context.Context, supplier *domain.Supplier) error
+	DeleteSupplier(ctx context.Context, id uuid.UUID) error
 	AddModelSupplier(ctx context.Context, modelSupplier *domain.ModelSupplier) error
 
 	// Instances
@@ -38,4 +44,8 @@ type AssetRepository interface {
 
 	// Thresholds
 	GetMetricThresholds(ctx context.Context, metricName string, eqID *uuid.UUID, partID *uuid.UUID) ([]domain.MetricThreshold, error)
+	GetMetricThresholdByID(ctx context.Context, id uuid.UUID) (*domain.MetricThreshold, error)
+	CreateMetricThreshold(ctx context.Context, threshold *domain.MetricThreshold) error
+	UpdateMetricThreshold(ctx context.Context, threshold *domain.MetricThreshold) error
+	DeleteMetricThreshold(ctx context.Context, id uuid.UUID) error
 }

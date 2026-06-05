@@ -134,3 +134,42 @@ func (r *assetRepository) GetMetricThresholds(ctx context.Context, metricName st
 	return thresholds, err
 }
 
+func (r *assetRepository) UpdateEquipmentModel(ctx context.Context, model *domain.EquipmentModel) error {
+	return r.db.WithContext(ctx).Save(model).Error
+}
+
+func (r *assetRepository) CreateEquipmentModelPartRequirement(ctx context.Context, req *domain.EquipmentModelPartRequirement) error {
+	return r.db.WithContext(ctx).Create(req).Error
+}
+
+func (r *assetRepository) DeleteEquipmentModelPartRequirements(ctx context.Context, modelID uuid.UUID) error {
+	return r.db.WithContext(ctx).Where("equipment_model_id = ?", modelID).Delete(&domain.EquipmentModelPartRequirement{}).Error
+}
+
+func (r *assetRepository) UpdateSupplier(ctx context.Context, supplier *domain.Supplier) error {
+	return r.db.WithContext(ctx).Save(supplier).Error
+}
+
+func (r *assetRepository) DeleteSupplier(ctx context.Context, id uuid.UUID) error {
+	return r.db.WithContext(ctx).Delete(&domain.Supplier{}, "id = ?", id).Error
+}
+
+func (r *assetRepository) GetMetricThresholdByID(ctx context.Context, id uuid.UUID) (*domain.MetricThreshold, error) {
+	var t domain.MetricThreshold
+	err := r.db.WithContext(ctx).First(&t, "id = ?", id).Error
+	return &t, err
+}
+
+func (r *assetRepository) CreateMetricThreshold(ctx context.Context, threshold *domain.MetricThreshold) error {
+	return r.db.WithContext(ctx).Create(threshold).Error
+}
+
+func (r *assetRepository) UpdateMetricThreshold(ctx context.Context, threshold *domain.MetricThreshold) error {
+	return r.db.WithContext(ctx).Save(threshold).Error
+}
+
+func (r *assetRepository) DeleteMetricThreshold(ctx context.Context, id uuid.UUID) error {
+	return r.db.WithContext(ctx).Delete(&domain.MetricThreshold{}, "id = ?", id).Error
+}
+
+

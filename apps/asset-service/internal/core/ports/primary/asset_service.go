@@ -13,10 +13,14 @@ type AssetService interface {
 	CreatePartModel(ctx context.Context, req domain.CreatePartModelRequest) (domain.PartModelResponse, error)
 	GetEquipmentModels(ctx context.Context) ([]domain.EquipmentModelResponse, error)
 	GetPartModels(ctx context.Context) ([]domain.PartModelResponse, error)
+	UpdateEquipmentModel(ctx context.Context, id uuid.UUID, req domain.UpdateEquipmentModelRequest) (domain.EquipmentModelResponse, error)
+	UpdatePartModel(ctx context.Context, id uuid.UUID, req domain.UpdatePartModelRequest) (domain.PartModelResponse, error)
 
 	// Suppliers
 	CreateSupplier(ctx context.Context, req domain.CreateSupplierRequest) (domain.SupplierResponse, error)
 	GetSuppliers(ctx context.Context) ([]domain.SupplierResponse, error)
+	UpdateSupplier(ctx context.Context, id uuid.UUID, req domain.UpdateSupplierRequest) (domain.SupplierResponse, error)
+	DeleteSupplier(ctx context.Context, id uuid.UUID) error
 	AddSupplierToEquipmentModel(ctx context.Context, modelID uuid.UUID, req domain.AddModelSupplierRequest) (domain.ModelSupplierResponse, error)
 	AddSupplierToPartModel(ctx context.Context, modelID uuid.UUID, req domain.AddModelSupplierRequest) (domain.ModelSupplierResponse, error)
 
@@ -34,4 +38,9 @@ type AssetService interface {
 	// Measurements
 	IngestMeasurement(ctx context.Context, req domain.IngestMeasurementRequest, userID *uuid.UUID) (domain.MeasurementResponse, error)
 	GetMeasurements(ctx context.Context, targetType string, targetID uuid.UUID, since string) ([]domain.MeasurementResponse, error)
+
+	// Thresholds
+	CreateMetricThreshold(ctx context.Context, req domain.CreateMetricThresholdRequest) (domain.MetricThresholdResponse, error)
+	UpdateMetricThreshold(ctx context.Context, id uuid.UUID, req domain.UpdateMetricThresholdRequest) (domain.MetricThresholdResponse, error)
+	DeleteMetricThreshold(ctx context.Context, id uuid.UUID) error
 }

@@ -34,6 +34,50 @@ func (s *assetService) CreateEquipmentModel(ctx context.Context, req domain.Crea
 		return domain.EquipmentModelResponse{}, err
 	}
 
+	for _, pr := range req.PartRequirements {
+		reqModel := &domain.EquipmentModelPartRequirement{
+			ID:               uuid.New(),
+			EquipmentModelID: model.ID,
+			PartModelID:      pr.PartModelID,
+			Quantity:         pr.Quantity,
+		}
+		_ = s.repo.CreateEquipmentModelPartRequirement(ctx, reqModel)
+		model.PartRequirements = append(model.PartRequirements, *reqModel)
+	}
+
+	return model.ToResponse(), nil
+}
+
+func (s *assetService) UpdateEquipmentModel(ctx context.Context, id uuid.UUID, req domain.UpdateEquipmentModelRequest) (domain.EquipmentModelResponse, error) {
+	model, err := s.repo.GetEquipmentModelByID(ctx, id)
+	if err != nil || model == nil {
+		return domain.EquipmentModelResponse{}, errors.New("equipment model not found")
+	}
+
+	if req.Name != nil { model.Name = *req.Name }
+	if req.Category != nil { model.Category = *req.Category }
+	if req.Description != nil { model.Description = *req.Description }
+
+	if err := s.repo.UpdateEquipmentModel(ctx, model); err != nil {
+		return domain.EquipmentModelResponse{}, err
+	}
+
+	if req.PartRequirements != nil {
+		_ = s.repo.DeleteEquipmentModelPartRequirements(ctx, id)
+		var newReqs []domain.EquipmentModelPartRequirement
+		for _, pr := range req.PartRequirements {
+			reqModel := &domain.EquipmentModelPartRequirement{
+				ID:               uuid.New(),
+				EquipmentModelID: id,
+				PartModelID:      pr.PartModelID,
+				Quantity:         pr.Quantity,
+			}
+			_ = s.repo.CreateEquipmentModelPartRequirement(ctx, reqModel)
+			newReqs = append(newReqs, *reqModel)
+		}
+		model.PartRequirements = newReqs
+	}
+
 	return model.ToResponse(), nil
 }
 
@@ -47,6 +91,24 @@ func (s *assetService) CreatePartModel(ctx context.Context, req domain.CreatePar
 	}
 
 	if err := s.repo.CreatePartModel(ctx, model); err != nil {
+		return domain.PartModelResponse{}, err
+	}
+
+	return model.ToResponse(), nil
+}
+
+func (s *assetService) UpdatePartModel(ctx context.Context, id uuid.UUID, req domain.UpdatePartModelRequest) (domain.PartModelResponse, error) {
+	model, err := s.repo.GetPartModelByID(ctx, id)
+	if err != nil || model == nil {
+		return domain.PartModelResponse{}, errors.New("part model not found")
+	}
+
+	if req.Name != nil { model.Name = *req.Name }
+	if req.Category != nil { model.Category = *req.Category }
+	if req.SpareQuantity != nil { model.SpareQuantity = *req.SpareQuantity }
+	if req.IsSerialized != nil { model.IsSerialized = *req.IsSerialized }
+
+	if err := s.repo.UpdatePartModel(ctx, model); err != nil {
 		return domain.PartModelResponse{}, err
 	}
 
@@ -106,6 +168,25 @@ func (s *assetService) GetSuppliers(ctx context.Context) ([]domain.SupplierRespo
 		res[i] = sup.ToResponse()
 	}
 	return res, nil
+}
+
+func (s *assetService) UpdateSupplier(ctx context.Context, id uuid.UUID, req domain.UpdateSupplierRequest) (domain.SupplierResponse, error) {
+	supplier, err := s.repo.GetSupplierByID(ctx, id)
+	if err != nil || supplier == nil {
+		return domain.SupplierResponse{}, errors.New("supplier not found")
+	}
+
+	if req.Name != nil { supplier.Name = *req.Name }
+	if req.ContactInfo != nil { supplier.ContactInfo = *req.ContactInfo }
+
+	if err := s.repo.UpdateSupplier(ctx, supplier); err != nil {
+		return domain.SupplierResponse{}, err
+	}
+	return supplier.ToResponse(), nil
+}
+
+func (s *assetService) DeleteSupplier(ctx context.Context, id uuid.UUID) error {
+	return s.repo.DeleteSupplier(ctx, id)
 }
 
 func (s *assetService) AddSupplierToEquipmentModel(ctx context.Context, modelID uuid.UUID, req domain.AddModelSupplierRequest) (domain.ModelSupplierResponse, error) {
@@ -177,6 +258,7 @@ func (s *assetService) CreateEquipmentInstance(ctx context.Context, req domain.C
 		ID:               uuid.New(),
 		Code:             req.Code,
 		EquipmentModelID: req.EquipmentModelID,
+		SupplierID:       req.SupplierID,
 		Status:           "OPERATIONAL",
 		Location:         req.Location,
 	}
@@ -244,6 +326,7 @@ func (s *assetService) CreatePartInstance(ctx context.Context, req domain.Create
 		ID:                  uuid.New(),
 		EquipmentInstanceID: eqID,
 		PartModelID:         req.PartModelID,
+		SupplierID:          req.SupplierID,
 		SerialNumber:        req.SerialNumber,
 		Status:              "OPERATIONAL",
 		CurrentLocation:     req.CurrentLocation,
@@ -480,5 +563,45 @@ func (s *assetService) GetMeasurements(ctx context.Context, targetType string, t
 		res[i] = m.ToResponse()
 	}
 	return res, nil
+}
+
+// --- Thresholds ---
+
+func (s *assetService) CreateMetricThreshold(ctx context.Context, req domain.CreateMetricThresholdRequest) (domain.MetricThresholdResponse, error) {
+	threshold := &domain.MetricThreshold{
+		ID:                  uuid.New(),
+		EquipmentModelID:    req.EquipmentModelID,
+		PartModelID:         req.PartModelID,
+		EquipmentInstanceID: req.EquipmentInstanceID,
+		PartInstanceID:      req.PartInstanceID,
+		MetricName:          req.MetricName,
+		MinValue:            req.MinValue,
+		MaxValue:            req.MaxValue,
+		Unit:                req.Unit,
+	}
+
+	if err := s.repo.CreateMetricThreshold(ctx, threshold); err != nil {
+		return domain.MetricThresholdResponse{}, err
+	}
+	return threshold.ToResponse(), nil
+}
+
+func (s *assetService) UpdateMetricThreshold(ctx context.Context, id uuid.UUID, req domain.UpdateMetricThresholdRequest) (domain.MetricThresholdResponse, error) {
+	t, err := s.repo.GetMetricThresholdByID(ctx, id)
+	if err != nil || t == nil {
+		return domain.MetricThresholdResponse{}, errors.New("threshold not found")
+	}
+
+	if req.MinValue != nil { t.MinValue = req.MinValue }
+	if req.MaxValue != nil { t.MaxValue = req.MaxValue }
+
+	if err := s.repo.UpdateMetricThreshold(ctx, t); err != nil {
+		return domain.MetricThresholdResponse{}, err
+	}
+	return t.ToResponse(), nil
+}
+
+func (s *assetService) DeleteMetricThreshold(ctx context.Context, id uuid.UUID) error {
+	return s.repo.DeleteMetricThreshold(ctx, id)
 }
 

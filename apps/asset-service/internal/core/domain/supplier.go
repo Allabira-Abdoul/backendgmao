@@ -97,3 +97,8 @@ type AddModelSupplierRequest struct {
 	SupplierReferenceCode string    `json:"supplier_reference_code" binding:"required"`
 	TechnicalDocReference string    `json:"technical_doc_reference"`
 }
+
+type UpdateSupplierRequest struct {
+	Name        *string `json:"name"`
+	ContactInfo *string `json:"contact_info"`
+}

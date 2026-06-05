@@ -64,6 +64,8 @@ type EquipmentInstance struct {
 	Code             string            `gorm:"column:code;uniqueIndex;not null" json:"code"`
 	EquipmentModelID uuid.UUID         `gorm:"column:equipment_model_id;type:uuid;not null" json:"equipment_model_id"`
 	EquipmentModel   EquipmentModel    `gorm:"foreignKey:EquipmentModelID" json:"equipment_model,omitempty"`
+	SupplierID       *uuid.UUID        `gorm:"column:supplier_id;type:uuid" json:"supplier_id,omitempty"`
+	Supplier         *Supplier         `gorm:"foreignKey:SupplierID" json:"supplier,omitempty"`
 	Status           string            `gorm:"column:status;not null;default:'OPERATIONAL'" json:"status"`
 	Location         string            `gorm:"column:location;not null" json:"location"`
 	Parts            []PartInstance    `gorm:"foreignKey:EquipmentInstanceID" json:"parts,omitempty"`
@@ -80,6 +82,8 @@ type PartInstance struct {
 	EquipmentInstanceID *uuid.UUID        `gorm:"column:equipment_instance_id;type:uuid" json:"equipment_instance_id"`
 	PartModelID         uuid.UUID         `gorm:"column:part_model_id;type:uuid;not null" json:"part_model_id"`
 	PartModel           PartModel         `gorm:"foreignKey:PartModelID" json:"part_model,omitempty"`
+	SupplierID          *uuid.UUID        `gorm:"column:supplier_id;type:uuid" json:"supplier_id,omitempty"`
+	Supplier            *Supplier         `gorm:"foreignKey:SupplierID" json:"supplier,omitempty"`
 	SerialNumber        string            `gorm:"column:serial_number" json:"serial_number"`
 	Status              string            `gorm:"column:status;not null;default:'OPERATIONAL'" json:"status"`
 	CurrentLocation     string            `gorm:"column:current_location;not null;default:'Warehouse'" json:"current_location"`
@@ -142,6 +146,8 @@ type EquipmentInstanceResponse struct {
 	Code             string                      `json:"code"`
 	EquipmentModelID uuid.UUID                   `json:"equipment_model_id"`
 	EquipmentModel   *EquipmentModelResponse     `json:"equipment_model,omitempty"`
+	SupplierID       *uuid.UUID                  `json:"supplier_id,omitempty"`
+	Supplier         *SupplierResponse           `json:"supplier,omitempty"`
 	Status           string                      `json:"status"`
 	Location         string                      `json:"location"`
 	Parts            []PartInstanceResponse      `json:"parts,omitempty"`
@@ -155,6 +161,8 @@ type PartInstanceResponse struct {
 	EquipmentInstanceID *uuid.UUID                `json:"equipment_instance_id,omitempty"`
 	PartModelID         uuid.UUID                 `json:"part_model_id"`
 	PartModel           *PartModelResponse        `json:"part_model,omitempty"`
+	SupplierID          *uuid.UUID                `json:"supplier_id,omitempty"`
+	Supplier            *SupplierResponse         `json:"supplier,omitempty"`
 	SerialNumber        string                    `json:"serial_number,omitempty"`
 	Status              string                    `json:"status"`
 	CurrentLocation     string                    `json:"current_location"`
@@ -230,11 +238,19 @@ func (e *EquipmentInstance) ToResponse() EquipmentInstanceResponse {
 		emResp = &r
 	}
 
+	var supResp *SupplierResponse
+	if e.Supplier != nil && e.Supplier.Name != "" {
+		s := e.Supplier.ToResponse()
+		supResp = &s
+	}
+
 	return EquipmentInstanceResponse{
 		ID:               e.ID,
 		Code:             e.Code,
 		EquipmentModelID: e.EquipmentModelID,
 		EquipmentModel:   emResp,
+		SupplierID:       e.SupplierID,
+		Supplier:         supResp,
 		Status:           e.Status,
 		Location:         e.Location,
 		Parts:            parts,
@@ -254,11 +270,19 @@ func (p *PartInstance) ToResponse() PartInstanceResponse {
 		pmResp = &r
 	}
 
+	var supResp *SupplierResponse
+	if p.Supplier != nil && p.Supplier.Name != "" {
+		s := p.Supplier.ToResponse()
+		supResp = &s
+	}
+
 	return PartInstanceResponse{
 		ID:                  p.ID,
 		EquipmentInstanceID: p.EquipmentInstanceID,
 		PartModelID:         p.PartModelID,
 		PartModel:           pmResp,
+		SupplierID:          p.SupplierID,
+		Supplier:            supResp,
 		SerialNumber:        p.SerialNumber,
 		Status:              p.Status,
 		CurrentLocation:     p.CurrentLocation,
@@ -270,10 +294,16 @@ func (p *PartInstance) ToResponse() PartInstanceResponse {
 
 // Request DTOs
 
+type PartRequirementReq struct {
+	PartModelID uuid.UUID `json:"part_model_id"`
+	Quantity    int       `json:"quantity"`
+}
+
 type CreateEquipmentModelRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Category    string `json:"category" binding:"required"`
-	Description string `json:"description"`
+	Name             string               `json:"name" binding:"required"`
+	Category         string               `json:"category" binding:"required"`
+	Description      string               `json:"description"`
+	PartRequirements []PartRequirementReq `json:"part_requirements"`
 }
 
 type CreatePartModelRequest struct {
@@ -283,17 +313,33 @@ type CreatePartModelRequest struct {
 	IsSerialized  bool   `json:"is_serialized"`
 }
 
+type UpdateEquipmentModelRequest struct {
+	Name             *string              `json:"name"`
+	Category         *string              `json:"category"`
+	Description      *string              `json:"description"`
+	PartRequirements []PartRequirementReq `json:"part_requirements"`
+}
+
+type UpdatePartModelRequest struct {
+	Name          *string `json:"name"`
+	Category      *string `json:"category"`
+	SpareQuantity *int    `json:"spare_quantity"`
+	IsSerialized  *bool   `json:"is_serialized"`
+}
+
 type CreateEquipmentInstanceRequest struct {
-	Code             string    `json:"code" binding:"required"`
-	EquipmentModelID uuid.UUID `json:"equipment_model_id" binding:"required"`
-	Location         string    `json:"location" binding:"required"`
+	Code             string     `json:"code" binding:"required"`
+	EquipmentModelID uuid.UUID  `json:"equipment_model_id" binding:"required"`
+	SupplierID       *uuid.UUID `json:"supplier_id,omitempty"`
+	Location         string     `json:"location" binding:"required"`
 }
 
 type CreatePartInstanceRequest struct {
-	PartModelID         uuid.UUID `json:"part_model_id" binding:"required"`
-	SerialNumber        string    `json:"serial_number" binding:"required"`
-	EquipmentInstanceID *string   `json:"equipment_instance_id,omitempty" binding:"omitempty,uuid"`
-	CurrentLocation     string    `json:"current_location" binding:"required"`
+	PartModelID         uuid.UUID  `json:"part_model_id" binding:"required"`
+	SupplierID          *uuid.UUID `json:"supplier_id,omitempty"`
+	SerialNumber        string     `json:"serial_number" binding:"required"`
+	EquipmentInstanceID *string    `json:"equipment_instance_id,omitempty" binding:"omitempty,uuid"`
+	CurrentLocation     string     `json:"current_location" binding:"required"`
 }
 
 type ConsumePartRequest struct {
