@@ -20,6 +20,7 @@ func Seed(db *gorm.DB) {
 		&domain.MetricThreshold{},
 		&domain.Supplier{},
 		&domain.ModelSupplier{},
+		&domain.EquipmentModelPartRequirement{},
 		&domain.PartConsumptionLog{},
 		&domain.Measurement{},
 	)
@@ -59,11 +60,21 @@ func Seed(db *gorm.DB) {
 	// Sweeper Parts
 	sweeperBrush := createPartModel(db, "Rotary Wire Brush", "MECHANICAL", 30)
 
+	// 2.5 Map Parts to Models
+	createEquipmentModelPartRequirement(db, pushbackModel.ID, tugEngine.ID, 1)
+	createEquipmentModelPartRequirement(db, pushbackModel.ID, tugTire.ID, 4)
+	createEquipmentModelPartRequirement(db, pushbackModel.ID, tugPin.ID, 1)
+	createEquipmentModelPartRequirement(db, gpuModel.ID, gpuGenerator.ID, 1)
+	createEquipmentModelPartRequirement(db, gpuModel.ID, gpuCable.ID, 1)
+	createEquipmentModelPartRequirement(db, jetwayModel.ID, jetwayCanopy.ID, 1)
+	createEquipmentModelPartRequirement(db, jetwayModel.ID, jetwayConsole.ID, 1)
+	createEquipmentModelPartRequirement(db, sweeperModel.ID, sweeperBrush.ID, 2)
+
 	// 3. Create Equipment Instances and assign Part Instances
 	now := time.Now()
 
 	// Pushback Tractor PT1
-	pt1 := createEquipmentInstance(db, "PT-001", pushbackModel.ID, "OPERATIONAL", "Gate 10 Apron", now.AddDate(-3, 0, 0), 120000.0)
+	pt1 := createEquipmentInstance(db, "PT-001", pushbackModel.ID, "OPERATIONAL", "DLA")
 	createPartInstance(db, pt1.ID, tugEngine.ID, "SN-PT1-ENG")
 	createPartInstance(db, pt1.ID, tugTire.ID, "SN-PT1-TIR1")
 	createPartInstance(db, pt1.ID, tugTire.ID, "SN-PT1-TIR2")
@@ -72,31 +83,31 @@ func Seed(db *gorm.DB) {
 	createPartInstance(db, pt1.ID, tugPin.ID, "SN-PT1-PIN")
 
 	// Pushback Tractor PT2 (In Maintenance)
-	pt2 := createEquipmentInstance(db, "PT-002", pushbackModel.ID, "DOWN", "Maintenance Hangar", now.AddDate(-1, -6, 0), 125000.0)
+	pt2 := createEquipmentInstance(db, "PT-002", pushbackModel.ID, "DOWN", "NSI")
 	createPartInstance(db, pt2.ID, tugEngine.ID, "SN-PT2-ENG")
 	createPartInstance(db, pt2.ID, tugPin.ID, "SN-PT2-PIN")
 
 	// GPU 1
-	gpu1 := createEquipmentInstance(db, "GPU-1A", gpuModel.ID, "OPERATIONAL", "Gate 12", now.AddDate(0, -2, 0), 45000.0)
+	gpu1 := createEquipmentInstance(db, "GPU-1A", gpuModel.ID, "OPERATIONAL", "GOU")
 	createPartInstance(db, gpu1.ID, gpuGenerator.ID, "SN-GPU1-GEN")
 	createPartInstance(db, gpu1.ID, gpuCable.ID, "SN-GPU1-CAB")
 
 	// Jetway 1
-	jet1 := createEquipmentInstance(db, "GATE-10-BRIDGE", jetwayModel.ID, "OPERATIONAL", "Terminal 1 Gate 10", now.AddDate(-5, 0, 0), 850000.0)
+	jet1 := createEquipmentInstance(db, "GATE-10-BRIDGE", jetwayModel.ID, "OPERATIONAL", "DLA")
 	createPartInstance(db, jet1.ID, jetwayCanopy.ID, "SN-JET1-CAN")
 	createPartInstance(db, jet1.ID, jetwayConsole.ID, "SN-JET1-CON")
 
 	// Runway Sweeper
-	sweep1 := createEquipmentInstance(db, "SWP-R1", sweeperModel.ID, "OPERATIONAL", "Airfield Garage", now.AddDate(-2, -3, 0), 210000.0)
+	sweep1 := createEquipmentInstance(db, "SWP-R1", sweeperModel.ID, "OPERATIONAL", "BPC")
 	createPartInstance(db, sweep1.ID, sweeperBrush.ID, "SN-SWP1-BRU1")
 	createPartInstance(db, sweep1.ID, sweeperBrush.ID, "SN-SWP1-BRU2")
 
 	// Create instances for other models to avoid "declared and not used" errors
-	createEquipmentInstance(db, "BLT-100", beltLoaderModel.ID, "OPERATIONAL", "Apron 2", now, 60000.0)
-	createEquipmentInstance(db, "DEICE-1", deiceModel.ID, "IN_STOCK", "Winter Garage", now, 150000.0)
-	createEquipmentInstance(db, "SCAN-X1", scannerModel.ID, "OPERATIONAL", "Terminal 1 Security", now, 120000.0)
-	createEquipmentInstance(db, "CAR-ARR1", carouselModel.ID, "OPERATIONAL", "Arrivals Hall B", now, 250000.0)
-	ils1 := createEquipmentInstance(db, "ILS-RWY09", ilsModel.ID, "OPERATIONAL", "Runway 09", now, 1500000.0)
+	createEquipmentInstance(db, "BLT-100", beltLoaderModel.ID, "OPERATIONAL", "MVR")
+	createEquipmentInstance(db, "DEICE-1", deiceModel.ID, "IN_STOCK", "NGE")
+	createEquipmentInstance(db, "SCAN-X1", scannerModel.ID, "OPERATIONAL", "DLA")
+	createEquipmentInstance(db, "CAR-ARR1", carouselModel.ID, "OPERATIONAL", "DLA")
+	ils1 := createEquipmentInstance(db, "ILS-RWY09", ilsModel.ID, "OPERATIONAL", "DLA")
 
 	// 4. Create Suppliers & Model Suppliers
 	sup1 := createSupplier(db, "Global Aviation Parts", "contact@gap.com")
@@ -139,10 +150,10 @@ func createPartModel(db *gorm.DB, name, category string, qty int) domain.PartMod
 	return p
 }
 
-func createEquipmentInstance(db *gorm.DB, code string, modelID uuid.UUID, status, location string, date time.Time, value float64) domain.EquipmentInstance {
+func createEquipmentInstance(db *gorm.DB, code string, modelID uuid.UUID, status, location string) domain.EquipmentInstance {
 	var i domain.EquipmentInstance
 	db.Where(domain.EquipmentInstance{Code: code}).
-		Assign(domain.EquipmentInstance{EquipmentModelID: modelID, Status: status, Location: location, PurchaseDate: date, PurchaseValue: value}).
+		Assign(domain.EquipmentInstance{EquipmentModelID: modelID, Status: status, Location: location}).
 		FirstOrCreate(&i)
 	return i
 }
@@ -153,6 +164,14 @@ func createPartInstance(db *gorm.DB, eqInstID, partModelID uuid.UUID, sn string)
 		Assign(domain.PartInstance{EquipmentInstanceID: &eqInstID, PartModelID: partModelID, Status: "OPERATIONAL", CurrentLocation: "Installed"}).
 		FirstOrCreate(&p)
 	return p
+}
+
+func createEquipmentModelPartRequirement(db *gorm.DB, eqModelID, partModelID uuid.UUID, qty int) domain.EquipmentModelPartRequirement {
+	var r domain.EquipmentModelPartRequirement
+	db.Where(domain.EquipmentModelPartRequirement{EquipmentModelID: eqModelID, PartModelID: partModelID}).
+		Assign(domain.EquipmentModelPartRequirement{Quantity: qty}).
+		FirstOrCreate(&r)
+	return r
 }
 
 func createSupplier(db *gorm.DB, name, contactInfo string) domain.Supplier {

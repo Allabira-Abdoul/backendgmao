@@ -27,7 +27,7 @@ func (r *assetRepository) CreatePartModel(ctx context.Context, model *domain.Par
 
 func (r *assetRepository) GetEquipmentModels(ctx context.Context) ([]domain.EquipmentModel, error) {
 	var models []domain.EquipmentModel
-	err := r.db.WithContext(ctx).Preload("Thresholds").Preload("Suppliers").Preload("Suppliers.Supplier").Find(&models).Error
+	err := r.db.WithContext(ctx).Preload("Thresholds").Preload("Suppliers").Preload("Suppliers.Supplier").Preload("PartRequirements").Preload("PartRequirements.PartModel").Find(&models).Error
 	return models, err
 }
 
@@ -39,7 +39,7 @@ func (r *assetRepository) GetPartModels(ctx context.Context) ([]domain.PartModel
 
 func (r *assetRepository) GetEquipmentModelByID(ctx context.Context, id uuid.UUID) (*domain.EquipmentModel, error) {
 	var model domain.EquipmentModel
-	err := r.db.WithContext(ctx).Preload("Thresholds").Preload("Suppliers").Preload("Suppliers.Supplier").First(&model, "id = ?", id).Error
+	err := r.db.WithContext(ctx).Preload("Thresholds").Preload("Suppliers").Preload("Suppliers.Supplier").Preload("PartRequirements").Preload("PartRequirements.PartModel").First(&model, "id = ?", id).Error
 	return &model, err
 }
 

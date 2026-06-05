@@ -7,6 +7,7 @@ import (
 
 	"backend-gmao/apps/asset-service/internal/core/domain"
 	"backend-gmao/apps/asset-service/internal/core/ports/secondary"
+	"fmt"
 	"github.com/google/uuid"
 )
 
@@ -168,18 +169,40 @@ func (s *assetService) CreateEquipmentInstance(ctx context.Context, req domain.C
 		return domain.EquipmentInstanceResponse{}, errors.New("equipment model not found")
 	}
 
+	if !domain.IsValidLocation(req.Location) {
+		return domain.EquipmentInstanceResponse{}, fmt.Errorf("invalid location: %s", req.Location)
+	}
+
 	instance := &domain.EquipmentInstance{
 		ID:               uuid.New(),
 		Code:             req.Code,
 		EquipmentModelID: req.EquipmentModelID,
 		Status:           "OPERATIONAL",
 		Location:         req.Location,
-		PurchaseDate:     req.PurchaseDate,
-		PurchaseValue:    req.PurchaseValue,
 	}
 
 	if err := s.repo.CreateEquipmentInstance(ctx, instance); err != nil {
 		return domain.EquipmentInstanceResponse{}, err
+	}
+
+	// Auto-generate required parts based on EquipmentModel blueprint
+	for _, reqPart := range model.PartRequirements {
+		for i := 0; i < reqPart.Quantity; i++ {
+			partInst := &domain.PartInstance{
+				ID:                  uuid.New(),
+				EquipmentInstanceID: &instance.ID,
+				PartModelID:         reqPart.PartModelID,
+				SerialNumber:        fmt.Sprintf("SN-AUTO-%s-%d", uuid.New().String()[:8], i+1),
+				Status:              "OPERATIONAL",
+				CurrentLocation:     instance.Location,
+			}
+			if err := s.repo.CreatePartInstance(ctx, partInst); err == nil {
+				s.eventPublisher.PublishAuditLog(ctx, "CREATE", "PART_INSTANCE", partInst.ID.String(), nil, map[string]interface{}{
+					"auto_generated":        true,
+					"equipment_instance_id": instance.ID.String(),
+				})
+			}
+		}
 	}
 
 	// Emit Audit Log (ActorID is typically passed via context, but we can set it to nil for system actions if not present)
@@ -399,10 +422,13 @@ func (s *assetService) IngestMeasurement(ctx context.Context, req domain.IngestM
 
 	// Fetch Thresholds
 	thresholds, err := s.repo.GetMetricThresholds(ctx, req.MetricName, req.EquipmentInstanceID, req.PartInstanceID)
-	if err == nil && len(thresholds) > 0 {
-		// Evaluate the first matching threshold
-		t := thresholds[0]
-		breached := false
+	if err != nil || len(thresholds) == 0 {
+		return domain.MeasurementResponse{}, fmt.Errorf("metric not permitted: no threshold defined for metric name '%s'", req.MetricName)
+	}
+
+	// Evaluate the first matching threshold
+	t := thresholds[0]
+	breached := false
 		reason := ""
 		if t.MinValue != nil && req.Value < *t.MinValue {
 			breached = true
@@ -419,7 +445,6 @@ func (s *assetService) IngestMeasurement(ctx context.Context, req domain.IngestM
 				"reason":      reason,
 			})
 		}
-	}
 
 	return measurement.ToResponse(), nil
 }

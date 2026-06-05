@@ -256,8 +256,7 @@ func (h *AssetHandler) GetLegacyAssets(c *gin.Context) {
 			Status:        inst.Status,
 			Category:      inst.EquipmentModel.Category,
 			Location:      inst.Location,
-			PurchaseDate:  inst.PurchaseDate,
-			PurchaseValue: inst.PurchaseValue,
+			StockQuantity: 1, // Equipment instances are inherently 1
 			CreatedAt:     inst.CreatedAt,
 			UpdatedAt:     inst.UpdatedAt,
 		}
