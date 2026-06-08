@@ -192,50 +192,7 @@ func (h *AssetHandler) MovePartInstance(c *gin.Context) {
 
 // --- Measurements ---
 
-func (h *AssetHandler) IngestMeasurement(c *gin.Context) {
-	var req domain.IngestMeasurementRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
 
-	var userID *uuid.UUID
-	if userIDStr, exists := c.Get("user_id"); exists {
-		parsed, err := uuid.Parse(userIDStr.(string))
-		if err == nil {
-			userID = &parsed
-		}
-	}
-
-	res, err := h.service.IngestMeasurement(c.Request.Context(), req, userID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, res)
-}
-
-func (h *AssetHandler) GetMeasurements(c *gin.Context) {
-	targetType := c.Param("targetType") // "equipment" or "part"
-	targetIDParam := c.Param("targetID")
-
-	targetID, err := uuid.Parse(targetIDParam)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid target ID"})
-		return
-	}
-
-	since := c.Query("since")
-
-	res, err := h.service.GetMeasurements(c.Request.Context(), targetType, targetID, since)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, res)
-}
 
 // --- Backward compatibility wrapper for old clients ---
 func (h *AssetHandler) GetLegacyAssets(c *gin.Context) {
@@ -424,57 +381,5 @@ func (h *AssetHandler) DeleteSupplier(c *gin.Context) {
 
 // --- Thresholds ---
 
-func (h *AssetHandler) CreateMetricThreshold(c *gin.Context) {
-	var req domain.CreateMetricThresholdRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
 
-	res, err := h.service.CreateMetricThreshold(c.Request.Context(), req)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
 
-	c.JSON(http.StatusCreated, res)
-}
-
-func (h *AssetHandler) UpdateMetricThreshold(c *gin.Context) {
-	idParam := c.Param("id")
-	id, err := uuid.Parse(idParam)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid threshold id"})
-		return
-	}
-
-	var req domain.UpdateMetricThresholdRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	res, err := h.service.UpdateMetricThreshold(c.Request.Context(), id, req)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, res)
-}
-
-func (h *AssetHandler) DeleteMetricThreshold(c *gin.Context) {
-	idParam := c.Param("id")
-	id, err := uuid.Parse(idParam)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid threshold id"})
-		return
-	}
-
-	if err := h.service.DeleteMetricThreshold(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "deleted successfully"})
-}

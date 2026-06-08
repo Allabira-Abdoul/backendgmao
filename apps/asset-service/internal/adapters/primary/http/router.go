@@ -62,17 +62,5 @@ func RegisterRoutes(
 			actions.POST("/consume-part", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.ConsumePart)
 		}
 
-		measurements := authenticated.Group("/measurements")
-		{
-			measurements.POST("", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.IngestMeasurement)
-			measurements.GET("/:targetType/:targetID", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetMeasurements)
-		}
-
-		thresholds := authenticated.Group("/thresholds")
-		{
-			thresholds.POST("", middleware.RequirePrivilege("ASSET_CREATE"), assetHandler.CreateMetricThreshold)
-			thresholds.PUT("/:id", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.UpdateMetricThreshold)
-			thresholds.DELETE("/:id", middleware.RequirePrivilege("ASSET_DELETE"), assetHandler.DeleteMetricThreshold)
-		}
 	}
 }

@@ -27,25 +27,25 @@ func (r *assetRepository) CreatePartModel(ctx context.Context, model *domain.Par
 
 func (r *assetRepository) GetEquipmentModels(ctx context.Context) ([]domain.EquipmentModel, error) {
 	var models []domain.EquipmentModel
-	err := r.db.WithContext(ctx).Preload("Thresholds").Preload("Suppliers").Preload("Suppliers.Supplier").Preload("PartRequirements").Preload("PartRequirements.PartModel").Find(&models).Error
+	err := r.db.WithContext(ctx).Preload("Suppliers").Preload("Suppliers.Supplier").Preload("PartRequirements").Preload("PartRequirements.PartModel").Find(&models).Error
 	return models, err
 }
 
 func (r *assetRepository) GetPartModels(ctx context.Context) ([]domain.PartModel, error) {
 	var models []domain.PartModel
-	err := r.db.WithContext(ctx).Preload("Thresholds").Preload("Suppliers").Preload("Suppliers.Supplier").Find(&models).Error
+	err := r.db.WithContext(ctx).Preload("Suppliers").Preload("Suppliers.Supplier").Find(&models).Error
 	return models, err
 }
 
 func (r *assetRepository) GetEquipmentModelByID(ctx context.Context, id uuid.UUID) (*domain.EquipmentModel, error) {
 	var model domain.EquipmentModel
-	err := r.db.WithContext(ctx).Preload("Thresholds").Preload("Suppliers").Preload("Suppliers.Supplier").Preload("PartRequirements").Preload("PartRequirements.PartModel").First(&model, "id = ?", id).Error
+	err := r.db.WithContext(ctx).Preload("Suppliers").Preload("Suppliers.Supplier").Preload("PartRequirements").Preload("PartRequirements.PartModel").First(&model, "id = ?", id).Error
 	return &model, err
 }
 
 func (r *assetRepository) GetPartModelByID(ctx context.Context, id uuid.UUID) (*domain.PartModel, error) {
 	var model domain.PartModel
-	err := r.db.WithContext(ctx).Preload("Thresholds").Preload("Suppliers").Preload("Suppliers.Supplier").First(&model, "id = ?", id).Error
+	err := r.db.WithContext(ctx).Preload("Suppliers").Preload("Suppliers.Supplier").First(&model, "id = ?", id).Error
 	return &model, err
 }
 
@@ -85,19 +85,19 @@ func (r *assetRepository) CreatePartInstance(ctx context.Context, instance *doma
 
 func (r *assetRepository) GetEquipmentInstances(ctx context.Context) ([]domain.EquipmentInstance, error) {
 	var instances []domain.EquipmentInstance
-	err := r.db.WithContext(ctx).Preload("EquipmentModel").Preload("EquipmentModel.Suppliers").Preload("EquipmentModel.Suppliers.Supplier").Preload("Parts").Preload("Parts.PartModel").Preload("Parts.PartModel.Suppliers").Preload("Parts.PartModel.Suppliers.Supplier").Preload("Thresholds").Preload("Supplier").Find(&instances).Error
+	err := r.db.WithContext(ctx).Preload("EquipmentModel").Preload("EquipmentModel.Suppliers").Preload("EquipmentModel.Suppliers.Supplier").Preload("Parts").Preload("Parts.PartModel").Preload("Parts.PartModel.Suppliers").Preload("Parts.PartModel.Suppliers.Supplier").Preload("Supplier").Find(&instances).Error
 	return instances, err
 }
 
 func (r *assetRepository) GetEquipmentInstanceByCode(ctx context.Context, code string) (*domain.EquipmentInstance, error) {
 	var instance domain.EquipmentInstance
-	err := r.db.WithContext(ctx).Preload("EquipmentModel").Preload("EquipmentModel.Thresholds").Preload("EquipmentModel.Suppliers").Preload("EquipmentModel.Suppliers.Supplier").Preload("Supplier").Preload("Parts").Preload("Parts.PartModel").Preload("Parts.PartModel.Thresholds").Preload("Parts.PartModel.Suppliers").Preload("Parts.PartModel.Suppliers.Supplier").Preload("Parts.Supplier").Preload("Thresholds").First(&instance, "code = ?", code).Error
+	err := r.db.WithContext(ctx).Preload("EquipmentModel").Preload("EquipmentModel.Suppliers").Preload("EquipmentModel.Suppliers.Supplier").Preload("Supplier").Preload("Parts").Preload("Parts.PartModel").Preload("Parts.PartModel.Suppliers").Preload("Parts.PartModel.Suppliers.Supplier").Preload("Parts.Supplier").First(&instance, "code = ?", code).Error
 	return &instance, err
 }
 
 func (r *assetRepository) GetEquipmentInstanceByID(ctx context.Context, id uuid.UUID) (*domain.EquipmentInstance, error) {
 	var instance domain.EquipmentInstance
-	err := r.db.WithContext(ctx).Preload("EquipmentModel").Preload("EquipmentModel.Thresholds").Preload("EquipmentModel.Suppliers").Preload("EquipmentModel.Suppliers.Supplier").Preload("Supplier").Preload("Parts").Preload("Parts.PartModel").Preload("Parts.PartModel.Thresholds").Preload("Parts.PartModel.Suppliers").Preload("Parts.PartModel.Suppliers.Supplier").Preload("Parts.Supplier").Preload("Thresholds").First(&instance, "id = ?", id).Error
+	err := r.db.WithContext(ctx).Preload("EquipmentModel").Preload("EquipmentModel.Suppliers").Preload("EquipmentModel.Suppliers.Supplier").Preload("Supplier").Preload("Parts").Preload("Parts.PartModel").Preload("Parts.PartModel.Suppliers").Preload("Parts.PartModel.Suppliers.Supplier").Preload("Parts.Supplier").First(&instance, "id = ?", id).Error
 	return &instance, err
 }
 
@@ -107,7 +107,7 @@ func (r *assetRepository) UpdateEquipmentInstance(ctx context.Context, instance 
 
 func (r *assetRepository) GetPartInstanceByID(ctx context.Context, id uuid.UUID) (*domain.PartInstance, error) {
 	var instance domain.PartInstance
-	err := r.db.WithContext(ctx).Preload("PartModel").Preload("PartModel.Thresholds").Preload("PartModel.Suppliers").Preload("PartModel.Suppliers.Supplier").Preload("Supplier").Preload("Thresholds").First(&instance, "id = ?", id).Error
+	err := r.db.WithContext(ctx).Preload("PartModel").Preload("PartModel.Suppliers").Preload("PartModel.Suppliers.Supplier").Preload("Supplier").First(&instance, "id = ?", id).Error
 	return &instance, err
 }
 
@@ -119,20 +119,7 @@ func (r *assetRepository) CreatePartConsumptionLog(ctx context.Context, log *dom
 	return r.db.WithContext(ctx).Create(log).Error
 }
 
-func (r *assetRepository) GetMetricThresholds(ctx context.Context, metricName string, eqID *uuid.UUID, partID *uuid.UUID) ([]domain.MetricThreshold, error) {
-	var thresholds []domain.MetricThreshold
-	query := r.db.WithContext(ctx).Where("metric_name = ?", metricName)
 
-	if eqID != nil {
-		query = query.Where("equipment_instance_id = ?", *eqID)
-	}
-	if partID != nil {
-		query = query.Where("part_instance_id = ?", *partID)
-	}
-
-	err := query.Find(&thresholds).Error
-	return thresholds, err
-}
 
 func (r *assetRepository) UpdateEquipmentModel(ctx context.Context, model *domain.EquipmentModel) error {
 	return r.db.WithContext(ctx).Save(model).Error
@@ -154,22 +141,6 @@ func (r *assetRepository) DeleteSupplier(ctx context.Context, id uuid.UUID) erro
 	return r.db.WithContext(ctx).Delete(&domain.Supplier{}, "id = ?", id).Error
 }
 
-func (r *assetRepository) GetMetricThresholdByID(ctx context.Context, id uuid.UUID) (*domain.MetricThreshold, error) {
-	var t domain.MetricThreshold
-	err := r.db.WithContext(ctx).First(&t, "id = ?", id).Error
-	return &t, err
-}
 
-func (r *assetRepository) CreateMetricThreshold(ctx context.Context, threshold *domain.MetricThreshold) error {
-	return r.db.WithContext(ctx).Create(threshold).Error
-}
-
-func (r *assetRepository) UpdateMetricThreshold(ctx context.Context, threshold *domain.MetricThreshold) error {
-	return r.db.WithContext(ctx).Save(threshold).Error
-}
-
-func (r *assetRepository) DeleteMetricThreshold(ctx context.Context, id uuid.UUID) error {
-	return r.db.WithContext(ctx).Delete(&domain.MetricThreshold{}, "id = ?", id).Error
-}
 
 

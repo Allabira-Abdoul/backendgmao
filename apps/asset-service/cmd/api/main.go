@@ -62,7 +62,6 @@ func main() {
 		&domain.PartModel{}, 
 		&domain.EquipmentInstance{}, 
 		&domain.PartInstance{}, 
-		&domain.MetricThreshold{},
 		&domain.PartConsumptionLog{},
 		&domain.Supplier{},
 		&domain.ModelSupplier{},
@@ -70,11 +69,6 @@ func main() {
 		log.Fatalf("Failed to migrate Asset tables: %v", err)
 	}
 
-	// --- Partitioned Tables Migration ---
-	log.Println("Running partitioned table migrations...")
-	if err := pgadapter.InitPartitionedTable(database); err != nil {
-		log.Fatalf("Failed to initialize partitioned tables: %v", err)
-	}
 
 	log.Println("Database migrations completed")
 
@@ -101,7 +95,6 @@ func main() {
 
 	// --- Repositories (Secondary Adapters) ---
 	assetRepo := pgadapter.NewAssetRepository(database)
-	measurementRepo := pgadapter.NewMeasurementRepository(database)
 
 	// --- EventBus (RabbitMQ) ---
 	rabbitmqURL := getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
@@ -113,7 +106,7 @@ func main() {
 	eventPublisher := importEventBus.NewRabbitMQPublisher(bus)
 
 	// --- Application Services ---
-	assetService := service.NewAssetService(assetRepo, measurementRepo, eventPublisher)
+	assetService := service.NewAssetService(assetRepo,  eventPublisher)
 
 	// --- Start Consuming Events ---
 	importPrimaryEventBus.StartConsumingWorkOrderEvents(bus, assetService)

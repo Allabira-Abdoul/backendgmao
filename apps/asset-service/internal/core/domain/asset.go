@@ -23,7 +23,6 @@ type EquipmentModel struct {
 	Name        string            `gorm:"column:name;not null;uniqueIndex" json:"name"`
 	Category    string            `gorm:"column:category;not null" json:"category"`
 	Description string            `gorm:"column:description" json:"description"`
-	Thresholds       []MetricThreshold             `gorm:"foreignKey:EquipmentModelID" json:"thresholds,omitempty"`
 	Suppliers        []ModelSupplier               `gorm:"foreignKey:EquipmentModelID" json:"suppliers,omitempty"`
 	PartRequirements []EquipmentModelPartRequirement `gorm:"foreignKey:EquipmentModelID" json:"part_requirements,omitempty"`
 	CreatedAt   time.Time         `gorm:"column:created_at" json:"created_at"`
@@ -39,7 +38,6 @@ type PartModel struct {
 	Category      string            `gorm:"column:category;not null" json:"category"`
 	SpareQuantity int               `gorm:"column:spare_quantity;default:0" json:"spare_quantity"`
 	IsSerialized  bool              `gorm:"column:is_serialized;default:false" json:"is_serialized"`
-	Thresholds    []MetricThreshold `gorm:"foreignKey:PartModelID" json:"thresholds,omitempty"`
 	Suppliers     []ModelSupplier   `gorm:"foreignKey:PartModelID" json:"suppliers,omitempty"`
 	CreatedAt     time.Time         `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt     time.Time         `gorm:"column:updated_at" json:"updated_at"`
@@ -69,7 +67,6 @@ type EquipmentInstance struct {
 	Status           string            `gorm:"column:status;not null;default:'OPERATIONAL'" json:"status"`
 	Location         string            `gorm:"column:location;not null" json:"location"`
 	Parts            []PartInstance    `gorm:"foreignKey:EquipmentInstanceID" json:"parts,omitempty"`
-	Thresholds       []MetricThreshold `gorm:"foreignKey:EquipmentInstanceID" json:"thresholds,omitempty"` // Instance level overrides
 	CreatedAt        time.Time         `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt        time.Time         `gorm:"column:updated_at" json:"updated_at"`
 }
@@ -87,7 +84,6 @@ type PartInstance struct {
 	SerialNumber        string            `gorm:"column:serial_number" json:"serial_number"`
 	Status              string            `gorm:"column:status;not null;default:'OPERATIONAL'" json:"status"`
 	CurrentLocation     string            `gorm:"column:current_location;not null;default:'Warehouse'" json:"current_location"`
-	Thresholds          []MetricThreshold `gorm:"foreignKey:PartInstanceID" json:"thresholds,omitempty"` // Instance level overrides
 	CreatedAt           time.Time         `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt           time.Time         `gorm:"column:updated_at" json:"updated_at"`
 }
@@ -114,7 +110,6 @@ type EquipmentModelResponse struct {
 	Name        string                    `json:"name"`
 	Category    string                    `json:"category"`
 	Description string                    `json:"description"`
-	Thresholds       []MetricThresholdResponse             `json:"thresholds,omitempty"`
 	Suppliers        []ModelSupplierResponse               `json:"suppliers,omitempty"`
 	PartRequirements []EquipmentModelPartRequirementResponse `json:"part_requirements,omitempty"`
 	CreatedAt   time.Time                 `json:"created_at"`
@@ -127,7 +122,6 @@ type PartModelResponse struct {
 	Category      string                    `json:"category"`
 	SpareQuantity int                       `json:"spare_quantity"`
 	IsSerialized  bool                      `json:"is_serialized"`
-	Thresholds    []MetricThresholdResponse `json:"thresholds,omitempty"`
 	Suppliers     []ModelSupplierResponse   `json:"suppliers,omitempty"`
 	CreatedAt     time.Time                 `json:"created_at"`
 	UpdatedAt     time.Time                 `json:"updated_at"`
@@ -151,7 +145,6 @@ type EquipmentInstanceResponse struct {
 	Status           string                      `json:"status"`
 	Location         string                      `json:"location"`
 	Parts            []PartInstanceResponse      `json:"parts,omitempty"`
-	Thresholds       []MetricThresholdResponse   `json:"thresholds,omitempty"`
 	CreatedAt        time.Time                   `json:"created_at"`
 	UpdatedAt        time.Time                   `json:"updated_at"`
 }
@@ -166,7 +159,6 @@ type PartInstanceResponse struct {
 	SerialNumber        string                    `json:"serial_number,omitempty"`
 	Status              string                    `json:"status"`
 	CurrentLocation     string                    `json:"current_location"`
-	Thresholds          []MetricThresholdResponse `json:"thresholds,omitempty"`
 	CreatedAt           time.Time                 `json:"created_at"`
 	UpdatedAt           time.Time                 `json:"updated_at"`
 }
@@ -174,8 +166,6 @@ type PartInstanceResponse struct {
 // Converters
 
 func (e *EquipmentModel) ToResponse() EquipmentModelResponse {
-	thresh := make([]MetricThresholdResponse, len(e.Thresholds))
-	for i, t := range e.Thresholds { thresh[i] = t.ToResponse() }
 	sups := make([]ModelSupplierResponse, len(e.Suppliers))
 	for i, s := range e.Suppliers { sups[i] = s.ToResponse() }
 	reqs := make([]EquipmentModelPartRequirementResponse, len(e.PartRequirements))
@@ -185,7 +175,6 @@ func (e *EquipmentModel) ToResponse() EquipmentModelResponse {
 		Name:             e.Name,
 		Category:         e.Category,
 		Description:      e.Description,
-		Thresholds:       thresh,
 		Suppliers:        sups,
 		PartRequirements: reqs,
 		CreatedAt:        e.CreatedAt,
@@ -194,8 +183,6 @@ func (e *EquipmentModel) ToResponse() EquipmentModelResponse {
 }
 
 func (p *PartModel) ToResponse() PartModelResponse {
-	thresh := make([]MetricThresholdResponse, len(p.Thresholds))
-	for i, t := range p.Thresholds { thresh[i] = t.ToResponse() }
 	sups := make([]ModelSupplierResponse, len(p.Suppliers))
 	for i, s := range p.Suppliers { sups[i] = s.ToResponse() }
 	return PartModelResponse{
@@ -204,7 +191,6 @@ func (p *PartModel) ToResponse() PartModelResponse {
 		Category:      p.Category,
 		SpareQuantity: p.SpareQuantity,
 		IsSerialized:  p.IsSerialized,
-		Thresholds:    thresh,
 		Suppliers:     sups,
 		CreatedAt:     p.CreatedAt,
 		UpdatedAt:     p.UpdatedAt,
@@ -229,8 +215,6 @@ func (r *EquipmentModelPartRequirement) ToResponse() EquipmentModelPartRequireme
 func (e *EquipmentInstance) ToResponse() EquipmentInstanceResponse {
 	parts := make([]PartInstanceResponse, len(e.Parts))
 	for i, p := range e.Parts { parts[i] = p.ToResponse() }
-	thresh := make([]MetricThresholdResponse, len(e.Thresholds))
-	for i, t := range e.Thresholds { thresh[i] = t.ToResponse() }
 	
 	var emResp *EquipmentModelResponse
 	if e.EquipmentModel.Name != "" { // simple check if loaded
@@ -254,15 +238,12 @@ func (e *EquipmentInstance) ToResponse() EquipmentInstanceResponse {
 		Status:           e.Status,
 		Location:         e.Location,
 		Parts:            parts,
-		Thresholds:       thresh,
 		CreatedAt:        e.CreatedAt,
 		UpdatedAt:        e.UpdatedAt,
 	}
 }
 
 func (p *PartInstance) ToResponse() PartInstanceResponse {
-	thresh := make([]MetricThresholdResponse, len(p.Thresholds))
-	for i, t := range p.Thresholds { thresh[i] = t.ToResponse() }
 	
 	var pmResp *PartModelResponse
 	if p.PartModel.Name != "" {
@@ -286,7 +267,6 @@ func (p *PartInstance) ToResponse() PartInstanceResponse {
 		SerialNumber:        p.SerialNumber,
 		Status:              p.Status,
 		CurrentLocation:     p.CurrentLocation,
-		Thresholds:          thresh,
 		CreatedAt:           p.CreatedAt,
 		UpdatedAt:           p.UpdatedAt,
 	}
@@ -371,7 +351,6 @@ type AssetResponse struct {
 	Location      string                    `json:"location"`
 	StockQuantity int                       `json:"stock_quantity"`
 	Parts         []AssetResponse           `json:"parts,omitempty"`
-	Thresholds    []MetricThresholdResponse `json:"thresholds,omitempty"`
 	CreatedAt     time.Time                 `json:"created_at"`
 	UpdatedAt     time.Time                 `json:"updated_at"`
 }

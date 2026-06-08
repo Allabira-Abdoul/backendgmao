@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"log"
-	"time"
 
 	"backend-gmao/apps/asset-service/internal/core/domain"
 	"github.com/google/uuid"
@@ -17,12 +16,10 @@ func Seed(db *gorm.DB) {
 		&domain.PartModel{},
 		&domain.EquipmentInstance{},
 		&domain.PartInstance{},
-		&domain.MetricThreshold{},
 		&domain.Supplier{},
 		&domain.ModelSupplier{},
 		&domain.EquipmentModelPartRequirement{},
 		&domain.PartConsumptionLog{},
-		&domain.Measurement{},
 	)
 
 	log.Println("Seeding airport equipment data...")
@@ -76,8 +73,6 @@ func Seed(db *gorm.DB) {
 	createModelSupplier(db, sup1.ID, nil, &tugEngine.ID, "REF-GAP-ENG", "DOC-ENG-123")
 
 	// 3. Create Equipment Instances and assign Part Instances (Now with supplier)
-	now := time.Now()
-
 	// Pushback Tractor PT1
 	pt1 := createEquipmentInstance(db, "PT-001", pushbackModel.ID, &sup1.ID, "OPERATIONAL", "DLA")
 	createPartInstance(db, pt1.ID, tugEngine.ID, &sup1.ID, "SN-PT1-ENG")
@@ -114,13 +109,6 @@ func Seed(db *gorm.DB) {
 	createEquipmentInstance(db, "CAR-ARR1", carouselModel.ID, nil, "OPERATIONAL", "DLA")
 	ils1 := createEquipmentInstance(db, "ILS-RWY09", ilsModel.ID, nil, "OPERATIONAL", "DLA")
 
-	// 5. Create Metric Thresholds
-	createMetricThreshold(db, &pushbackModel.ID, nil, nil, nil, "Engine Temperature", nil, ptr(110.0), "Celsius")
-	createMetricThreshold(db, nil, nil, &gpu1.ID, nil, "Output Voltage", ptr(110.0), ptr(125.0), "Volts")
-
-	// 6. Create Measurements
-	createMeasurement(db, &pt1.ID, nil, "Engine Temperature", 85.5, "Celsius", now)
-	createMeasurement(db, &gpu1.ID, nil, "Output Voltage", 118.2, "Volts", now)
 
 	// 7. Create Part Consumption Logs
 	createPartConsumptionLog(db, tugTire.ID, 2, "Replaced 2 tires on PT-001")
@@ -190,31 +178,7 @@ func createModelSupplier(db *gorm.DB, supplierID uuid.UUID, eqModelID, partModel
 	return ms
 }
 
-func createMetricThreshold(db *gorm.DB, eqModelID, partModelID, eqInstID, partInstID *uuid.UUID, metric string, min, max *float64, unit string) domain.MetricThreshold {
-	var t domain.MetricThreshold
-	db.Where(domain.MetricThreshold{
-		EquipmentModelID:    eqModelID,
-		PartModelID:         partModelID,
-		EquipmentInstanceID: eqInstID,
-		PartInstanceID:      partInstID,
-		MetricName:          metric,
-	}).Assign(domain.MetricThreshold{MinValue: min, MaxValue: max, Unit: unit}).
-		FirstOrCreate(&t)
-	return t
-}
 
-func createMeasurement(db *gorm.DB, eqInstID, partInstID *uuid.UUID, metric string, value float64, unit string, recordedAt time.Time) domain.Measurement {
-	var m domain.Measurement
-	recordedAt = recordedAt.Truncate(time.Second)
-	db.Where(domain.Measurement{
-		EquipmentInstanceID: eqInstID,
-		PartInstanceID:      partInstID,
-		MetricName:          metric,
-		RecordedAt:          recordedAt,
-	}).Assign(domain.Measurement{Value: value, Unit: unit}).
-		FirstOrCreate(&m)
-	return m
-}
 
 func createPartConsumptionLog(db *gorm.DB, partModelID uuid.UUID, qty int, notes string) domain.PartConsumptionLog {
 	var l domain.PartConsumptionLog

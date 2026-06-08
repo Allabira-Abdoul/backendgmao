@@ -35,12 +35,5 @@ type AssetService interface {
 	MovePartInstance(ctx context.Context, partInstanceID uuid.UUID, req domain.MovePartInstanceRequest) (domain.PartInstanceResponse, error)
 	ConsumePart(ctx context.Context, req domain.ConsumePartRequest, userID uuid.UUID) error
 
-	// Measurements
-	IngestMeasurement(ctx context.Context, req domain.IngestMeasurementRequest, userID *uuid.UUID) (domain.MeasurementResponse, error)
-	GetMeasurements(ctx context.Context, targetType string, targetID uuid.UUID, since string) ([]domain.MeasurementResponse, error)
 
-	// Thresholds
-	CreateMetricThreshold(ctx context.Context, req domain.CreateMetricThresholdRequest) (domain.MetricThresholdResponse, error)
-	UpdateMetricThreshold(ctx context.Context, id uuid.UUID, req domain.UpdateMetricThresholdRequest) (domain.MetricThresholdResponse, error)
-	DeleteMetricThreshold(ctx context.Context, id uuid.UUID) error
 }

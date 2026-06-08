@@ -42,10 +42,4 @@ type AssetRepository interface {
 	// Logs
 	CreatePartConsumptionLog(ctx context.Context, log *domain.PartConsumptionLog) error
 
-	// Thresholds
-	GetMetricThresholds(ctx context.Context, metricName string, eqID *uuid.UUID, partID *uuid.UUID) ([]domain.MetricThreshold, error)
-	GetMetricThresholdByID(ctx context.Context, id uuid.UUID) (*domain.MetricThreshold, error)
-	CreateMetricThreshold(ctx context.Context, threshold *domain.MetricThreshold) error
-	UpdateMetricThreshold(ctx context.Context, threshold *domain.MetricThreshold) error
-	DeleteMetricThreshold(ctx context.Context, id uuid.UUID) error
 }
