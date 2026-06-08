@@ -400,6 +400,38 @@ func (s *assetService) UpdateEquipmentStatus(ctx context.Context, id uuid.UUID, 
 	return nil
 }
 
+func (s *assetService) UpdateEquipmentLocation(ctx context.Context, id uuid.UUID, newLocation string) error {
+	if !domain.IsValidLocation(newLocation) {
+		return fmt.Errorf("invalid location: %s", newLocation)
+	}
+
+	instance, err := s.repo.GetEquipmentInstanceByID(ctx, id)
+	if err != nil || instance == nil {
+		return errors.New("equipment instance not found")
+	}
+
+	oldLocation := instance.Location
+	instance.Location = newLocation
+
+	if err := s.repo.UpdateEquipmentInstance(ctx, instance); err != nil {
+		return err
+	}
+
+	for i := range instance.Parts {
+		instance.Parts[i].CurrentLocation = newLocation
+		if err := s.repo.UpdatePartInstance(ctx, &instance.Parts[i]); err != nil {
+			return err
+		}
+	}
+
+	s.eventPublisher.PublishAuditLog(ctx, "LOCATION_CHANGE", "EQUIPMENT_INSTANCE", instance.ID.String(), nil, map[string]interface{}{
+		"old_location": oldLocation,
+		"new_location": newLocation,
+	})
+
+	return nil
+}
+
 func (s *assetService) MovePartInstance(ctx context.Context, partInstanceID uuid.UUID, req domain.MovePartInstanceRequest) (domain.PartInstanceResponse, error) {
 	instance, err := s.repo.GetPartInstanceByID(ctx, partInstanceID)
 	if err != nil || instance == nil {

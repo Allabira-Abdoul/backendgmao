@@ -300,6 +300,10 @@ type UpdateEquipmentModelRequest struct {
 	PartRequirements []PartRequirementReq `json:"part_requirements"`
 }
 
+type UpdateEquipmentLocationRequest struct {
+	Location string `json:"location" binding:"required"`
+}
+
 type UpdatePartModelRequest struct {
 	Name          *string `json:"name"`
 	Category      *string `json:"category"`

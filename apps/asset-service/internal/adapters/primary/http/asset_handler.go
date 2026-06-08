@@ -317,6 +317,27 @@ func (h *AssetHandler) UpdateEquipmentModel(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
+func (h *AssetHandler) UpdateEquipmentLocation(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid equipment instance ID"})
+		return
+	}
+
+	var req domain.UpdateEquipmentLocationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.service.UpdateEquipmentLocation(c.Request.Context(), id, req.Location); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "equipment location updated successfully"})
+}
+
 func (h *AssetHandler) UpdatePartModel(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := uuid.Parse(idParam)
