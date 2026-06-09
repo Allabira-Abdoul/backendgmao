@@ -61,6 +61,7 @@ func RegisterRoutes(
 		actions := authenticated.Group("/actions")
 		{
 			actions.POST("/consume-part", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.ConsumePart)
+			actions.POST("/instances/:id/record-usage", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.RecordUsage)
 		}
 
 	}

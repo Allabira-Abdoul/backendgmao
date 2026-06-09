@@ -35,6 +35,7 @@ type AssetService interface {
 
 	MovePartInstance(ctx context.Context, partInstanceID uuid.UUID, req domain.MovePartInstanceRequest) (domain.PartInstanceResponse, error)
 	ConsumePart(ctx context.Context, req domain.ConsumePartRequest, userID uuid.UUID) error
+	RecordUsage(ctx context.Context, id uuid.UUID, req domain.RecordUsageRequest) error
 
 
 }

@@ -140,6 +140,28 @@ func (h *AssetHandler) GetEquipmentInstanceByID(c *gin.Context) {
 
 // --- Actions ---
 
+func (h *AssetHandler) RecordUsage(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := uuid.Parse(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid uuid"})
+		return
+	}
+
+	var req domain.RecordUsageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.service.RecordUsage(c.Request.Context(), id, req); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "usage recorded successfully"})
+}
+
 func (h *AssetHandler) ConsumePart(c *gin.Context) {
 	var req domain.ConsumePartRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

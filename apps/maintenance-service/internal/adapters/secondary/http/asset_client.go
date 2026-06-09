@@ -102,3 +102,39 @@ func (c *assetClient) UpdateAssetStatus(ctx context.Context, id uuid.UUID, statu
 	}
 	return nil
 }
+
+func (c *assetClient) RecordUsage(ctx context.Context, id uuid.UUID, usageHours float64, maintenanceDate *time.Time, maintenanceRuleID *string) error {
+	reqURL := fmt.Sprintf("%s/api/asset/instances/%s/record-usage", c.gatewayURL, id.String())
+	
+	payload := map[string]interface{}{
+		"usage_hours": usageHours,
+	}
+	if maintenanceDate != nil {
+		payload["maintenance_date"] = maintenanceDate
+	}
+	if maintenanceRuleID != nil {
+		payload["maintenance_rule_id"] = maintenanceRuleID
+	}
+
+	body, _ := json.Marshal(payload)
+	
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	token, _ := c.jwtManager.GenerateInternalServiceToken("maintenance-service")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("asset service returned %d when recording usage", resp.StatusCode)
+	}
+	return nil
+}

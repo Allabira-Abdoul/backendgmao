@@ -58,6 +58,9 @@ type Inspection struct {
 	ID           uuid.UUID           `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	WorkOrderID  uuid.UUID           `gorm:"column:work_order_id;type:uuid;not null" json:"work_order_id"`
 	Observations string              `gorm:"column:observations;not null" json:"observations"`
+	UsageHoursRecorded *float64    `gorm:"column:usage_hours_recorded" json:"usage_hours_recorded"`
+	RequiresAttention bool           `gorm:"column:requires_attention;not null;default:false" json:"requires_attention"`
+	AttentionReason string           `gorm:"column:attention_reason" json:"attention_reason"`
 	StartedAt    *time.Time          `gorm:"column:started_at" json:"started_at"`
 	EndedAt      *time.Time          `gorm:"column:ended_at" json:"ended_at"`
 	PerformedBy  uuid.UUID           `gorm:"column:performed_by;type:uuid;not null" json:"performed_by"`
@@ -112,6 +115,9 @@ type InspectionResponse struct {
 	ID           uuid.UUID                   `json:"id"`
 	WorkOrder    common.ResourceRef          `json:"work_order"`
 	Observations string                      `json:"observations"`
+	UsageHoursRecorded *float64              `json:"usage_hours_recorded,omitempty"`
+	RequiresAttention bool                     `json:"requires_attention"`
+	AttentionReason string                     `json:"attention_reason,omitempty"`
 	StartedAt    *time.Time                  `json:"started_at,omitempty"`
 	EndedAt      *time.Time                  `json:"ended_at,omitempty"`
 	PerformedBy  common.ResourceRef          `json:"performed_by"`
@@ -162,6 +168,9 @@ func (i *Inspection) ToResponse(workOrderName string, performedByName string, co
 		ID:           i.ID,
 		WorkOrder:    common.ResourceRef{ID: i.WorkOrderID, Name: workOrderName},
 		Observations: i.Observations,
+		UsageHoursRecorded: i.UsageHoursRecorded,
+		RequiresAttention: i.RequiresAttention,
+		AttentionReason: i.AttentionReason,
 		StartedAt:    i.StartedAt,
 		EndedAt:      i.EndedAt,
 		PerformedBy:  common.ResourceRef{ID: i.PerformedBy, Name: performedByName},
@@ -256,7 +265,10 @@ type CreateInterventionRequest struct {
 
 // CreateInspectionRequest is the DTO to record a new inspection.
 type CreateInspectionRequest struct {
-	Observations string                           `json:"observations" binding:"required,min=2"`
-	PerformedBy  string                           `json:"performed_by" binding:"required,uuid"`
-	Measurements []CreateMetricMeasurementRequest `json:"measurements,omitempty" binding:"omitempty,dive"`
+	Observations       string                           `json:"observations" binding:"required,min=2"`
+	UsageHoursRecorded *float64                         `json:"usage_hours_recorded,omitempty"`
+	RequiresAttention  bool                             `json:"requires_attention,omitempty"`
+	AttentionReason    string                           `json:"attention_reason,omitempty"`
+	PerformedBy        string                           `json:"performed_by" binding:"required,uuid"`
+	Measurements       []CreateMetricMeasurementRequest `json:"measurements,omitempty" binding:"omitempty,dive"`
 }

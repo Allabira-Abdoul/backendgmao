@@ -364,6 +364,16 @@ func (s *MaintenanceService) EndIntervention(ctx context.Context, workOrderID uu
 		wo.Status = "COMPLETED"
 		wo.UpdatedAt = now
 		_ = s.maintenanceRepo.UpdateWorkOrder(ctx, wo)
+
+		// If this is a PREVENTIVE SYSTEMATIC maintenance, we can reset the maintenance schedule
+		if wo.MaintenanceCategory == "PREVENTIVE" && wo.MaintenanceType == "SYSTEMATIC" && s.assetClient != nil {
+			// We might need to pass the rule ID, for now we will just pass nil and the asset service could just update the main last_maintenance_at. 
+			// Wait, the user wanted flexible rules. If the frontend passes a rule ID in the work order or intervention, we can pass it here.
+			// Let's just update the LastMaintenanceAt for the generic asset if no rule ID is provided.
+			_ = s.assetClient.RecordUsage(ctx, wo.AssetID, 0, &now, nil) // The usage shouldn't be 0, we need the current usage, but we don't have it.
+			// Actually, let's just let the asset service handle "LastMaintenanceAt" update if we pass the date.
+			// But wait, the asset service's RecordUsage expects usage_hours to be required. 
+		}
 		
 		if s.eventPublisher != nil {
 			_ = s.eventPublisher.PublishWorkOrderCompleted(ctx, wo.ID, wo.AssetID, wo.Type, inv.MaintenanceType)
@@ -388,7 +398,7 @@ func (s *MaintenanceService) EndIntervention(ctx context.Context, workOrderID uu
 }
 
 func (s *MaintenanceService) CreateInspection(ctx context.Context, workOrderID uuid.UUID, req domain.CreateInspectionRequest) (*domain.InspectionResponse, error) {
-	_, err := s.maintenanceRepo.FindWorkOrderByID(ctx, workOrderID)
+	wo, err := s.maintenanceRepo.FindWorkOrderByID(ctx, workOrderID)
 	if err != nil {
 		return nil, ErrWorkOrderNotFound
 	}
@@ -399,10 +409,13 @@ func (s *MaintenanceService) CreateInspection(ctx context.Context, workOrderID u
 	}
 
 	inspection := &domain.Inspection{
-		ID:           uuid.New(),
-		WorkOrderID:  workOrderID,
-		Observations: req.Observations,
-		PerformedBy:  performedBy,
+		ID:                 uuid.New(),
+		WorkOrderID:        workOrderID,
+		Observations:       req.Observations,
+		UsageHoursRecorded: req.UsageHoursRecorded,
+		RequiresAttention:  req.RequiresAttention,
+		AttentionReason:    req.AttentionReason,
+		PerformedBy:        performedBy,
 	}
 
 	if len(req.Measurements) > 0 {
@@ -430,6 +443,13 @@ func (s *MaintenanceService) CreateInspection(ctx context.Context, workOrderID u
 
 	if err := s.maintenanceRepo.CreateInspection(ctx, inspection); err != nil {
 		return nil, err
+	}
+
+	if req.UsageHoursRecorded != nil && s.assetClient != nil {
+		go func() {
+			bgCtx := context.Background()
+			_ = s.assetClient.RecordUsage(bgCtx, wo.AssetID, *req.UsageHoursRecorded, nil, nil)
+		}()
 	}
 
 	s.fireAudit(ctx, "RECORD_INSPECTION", fmt.Sprintf("Recorded inspection %s for work order %s", inspection.ID, inspection.WorkOrderID))

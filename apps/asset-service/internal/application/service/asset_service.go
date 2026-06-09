@@ -507,3 +507,49 @@ func (s *assetService) ConsumePart(ctx context.Context, req domain.ConsumePartRe
 
 	return nil
 }
+
+func (s *assetService) RecordUsage(ctx context.Context, id uuid.UUID, req domain.RecordUsageRequest) error {
+	instance, err := s.repo.GetEquipmentInstanceByID(ctx, id)
+	if err != nil || instance == nil {
+		return errors.New("equipment instance not found")
+	}
+
+	instance.UsageHours = req.UsageHours
+
+	if req.MaintenanceDate != nil && req.MaintenanceRuleID != nil {
+		// Try to find if this rule state exists
+		parsedRuleID, err := uuid.Parse(*req.MaintenanceRuleID)
+		if err != nil {
+			return errors.New("invalid maintenance_rule_id format")
+		}
+
+		var foundState *domain.EquipmentInstanceMaintenanceState
+		for i, state := range instance.MaintenanceStates {
+			if state.MaintenanceRuleID == parsedRuleID {
+				foundState = &instance.MaintenanceStates[i]
+				break
+			}
+		}
+
+		if foundState != nil {
+			foundState.LastMaintenanceAt = req.MaintenanceDate
+			foundState.LastMaintenanceUsageHours = &req.UsageHours
+		} else {
+			// Add new state
+			newState := domain.EquipmentInstanceMaintenanceState{
+				ID:                        uuid.New(),
+				EquipmentInstanceID:       id,
+				MaintenanceRuleID:         parsedRuleID,
+				LastMaintenanceAt:         req.MaintenanceDate,
+				LastMaintenanceUsageHours: &req.UsageHours,
+			}
+			instance.MaintenanceStates = append(instance.MaintenanceStates, newState)
+		}
+	}
+
+	if err := s.repo.UpdateEquipmentInstance(ctx, instance); err != nil {
+		return err
+	}
+
+	return nil
+}

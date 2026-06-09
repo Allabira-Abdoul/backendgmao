@@ -25,11 +25,25 @@ type EquipmentModel struct {
 	Description string            `gorm:"column:description" json:"description"`
 	Suppliers        []ModelSupplier               `gorm:"foreignKey:EquipmentModelID" json:"suppliers,omitempty"`
 	PartRequirements []EquipmentModelPartRequirement `gorm:"foreignKey:EquipmentModelID" json:"part_requirements,omitempty"`
+	MaintenanceRules []EquipmentModelMaintenanceRule `gorm:"foreignKey:EquipmentModelID" json:"maintenance_rules,omitempty"`
 	CreatedAt   time.Time         `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt   time.Time         `gorm:"column:updated_at" json:"updated_at"`
 }
 
 func (EquipmentModel) TableName() string { return "equipment_models" }
+
+// EquipmentModelMaintenanceRule defines a flexible maintenance schedule for a model.
+type EquipmentModelMaintenanceRule struct {
+	ID               uuid.UUID      `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	EquipmentModelID uuid.UUID      `gorm:"column:equipment_model_id;type:uuid;not null" json:"equipment_model_id"`
+	RuleName         string         `gorm:"column:rule_name;not null" json:"rule_name"` // e.g. "Minor Maintenance", "Major Maintenance"
+	IntervalHours    *float64       `gorm:"column:interval_hours" json:"interval_hours"` // e.g. 250
+	IntervalMonths   *int           `gorm:"column:interval_months" json:"interval_months"` // e.g. 3
+	CreatedAt        time.Time      `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt        time.Time      `gorm:"column:updated_at" json:"updated_at"`
+}
+
+func (EquipmentModelMaintenanceRule) TableName() string { return "equipment_model_maintenance_rules" }
 
 // PartModel represents the catalog definition of a standard part, managing global spare inventory.
 type PartModel struct {
@@ -67,11 +81,25 @@ type EquipmentInstance struct {
 	Status           string            `gorm:"column:status;not null;default:'OPERATIONAL'" json:"status"`
 	Location         string            `gorm:"column:location;not null" json:"location"`
 	Parts            []PartInstance    `gorm:"foreignKey:EquipmentInstanceID" json:"parts,omitempty"`
+	UsageHours       float64           `gorm:"column:usage_hours;not null;default:0" json:"usage_hours"`
+	MaintenanceStates []EquipmentInstanceMaintenanceState `gorm:"foreignKey:EquipmentInstanceID" json:"maintenance_states,omitempty"`
 	CreatedAt        time.Time         `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt        time.Time         `gorm:"column:updated_at" json:"updated_at"`
 }
 
 func (EquipmentInstance) TableName() string { return "equipment_instances" }
+
+// EquipmentInstanceMaintenanceState tracks the last time a rule was executed on an instance.
+type EquipmentInstanceMaintenanceState struct {
+	ID                  uuid.UUID `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	EquipmentInstanceID uuid.UUID `gorm:"column:equipment_instance_id;type:uuid;not null" json:"equipment_instance_id"`
+	MaintenanceRuleID   uuid.UUID `gorm:"column:maintenance_rule_id;type:uuid;not null" json:"maintenance_rule_id"`
+	Rule                EquipmentModelMaintenanceRule `gorm:"foreignKey:MaintenanceRuleID" json:"rule,omitempty"`
+	LastMaintenanceAt   *time.Time `gorm:"column:last_maintenance_at" json:"last_maintenance_at"`
+	LastMaintenanceUsageHours *float64 `gorm:"column:last_maintenance_usage_hours" json:"last_maintenance_usage_hours"`
+}
+
+func (EquipmentInstanceMaintenanceState) TableName() string { return "equipment_instance_maintenance_states" }
 
 // PartInstance represents the actual physical part installed on an equipment.
 type PartInstance struct {
@@ -112,8 +140,17 @@ type EquipmentModelResponse struct {
 	Description string                    `json:"description"`
 	Suppliers        []ModelSupplierResponse               `json:"suppliers,omitempty"`
 	PartRequirements []EquipmentModelPartRequirementResponse `json:"part_requirements,omitempty"`
+	MaintenanceRules []EquipmentModelMaintenanceRuleResponse `json:"maintenance_rules,omitempty"`
 	CreatedAt   time.Time                 `json:"created_at"`
 	UpdatedAt   time.Time                 `json:"updated_at"`
+}
+
+type EquipmentModelMaintenanceRuleResponse struct {
+	ID               uuid.UUID  `json:"id"`
+	EquipmentModelID uuid.UUID  `json:"equipment_model_id"`
+	RuleName         string     `json:"rule_name"`
+	IntervalHours    *float64   `json:"interval_hours,omitempty"`
+	IntervalMonths   *int       `json:"interval_months,omitempty"`
 }
 
 type PartModelResponse struct {
@@ -145,8 +182,19 @@ type EquipmentInstanceResponse struct {
 	Status           string                      `json:"status"`
 	Location         string                      `json:"location"`
 	Parts            []PartInstanceResponse      `json:"parts,omitempty"`
+	UsageHours       float64                     `json:"usage_hours"`
+	MaintenanceStates []EquipmentInstanceMaintenanceStateResponse `json:"maintenance_states,omitempty"`
 	CreatedAt        time.Time                   `json:"created_at"`
 	UpdatedAt        time.Time                   `json:"updated_at"`
+}
+
+type EquipmentInstanceMaintenanceStateResponse struct {
+	ID                        uuid.UUID                              `json:"id"`
+	EquipmentInstanceID       uuid.UUID                              `json:"equipment_instance_id"`
+	MaintenanceRuleID         uuid.UUID                              `json:"maintenance_rule_id"`
+	Rule                      *EquipmentModelMaintenanceRuleResponse `json:"rule,omitempty"`
+	LastMaintenanceAt         *time.Time                             `json:"last_maintenance_at,omitempty"`
+	LastMaintenanceUsageHours *float64                               `json:"last_maintenance_usage_hours,omitempty"`
 }
 
 type PartInstanceResponse struct {
@@ -170,6 +218,8 @@ func (e *EquipmentModel) ToResponse() EquipmentModelResponse {
 	for i, s := range e.Suppliers { sups[i] = s.ToResponse() }
 	reqs := make([]EquipmentModelPartRequirementResponse, len(e.PartRequirements))
 	for i, r := range e.PartRequirements { reqs[i] = r.ToResponse() }
+	rules := make([]EquipmentModelMaintenanceRuleResponse, len(e.MaintenanceRules))
+	for i, r := range e.MaintenanceRules { rules[i] = r.ToResponse() }
 	return EquipmentModelResponse{
 		ID:               e.ID,
 		Name:             e.Name,
@@ -177,8 +227,19 @@ func (e *EquipmentModel) ToResponse() EquipmentModelResponse {
 		Description:      e.Description,
 		Suppliers:        sups,
 		PartRequirements: reqs,
+		MaintenanceRules: rules,
 		CreatedAt:        e.CreatedAt,
 		UpdatedAt:   e.UpdatedAt,
+	}
+}
+
+func (r *EquipmentModelMaintenanceRule) ToResponse() EquipmentModelMaintenanceRuleResponse {
+	return EquipmentModelMaintenanceRuleResponse{
+		ID:               r.ID,
+		EquipmentModelID: r.EquipmentModelID,
+		RuleName:         r.RuleName,
+		IntervalHours:    r.IntervalHours,
+		IntervalMonths:   r.IntervalMonths,
 	}
 }
 
@@ -228,6 +289,9 @@ func (e *EquipmentInstance) ToResponse() EquipmentInstanceResponse {
 		supResp = &s
 	}
 
+	states := make([]EquipmentInstanceMaintenanceStateResponse, len(e.MaintenanceStates))
+	for i, s := range e.MaintenanceStates { states[i] = s.ToResponse() }
+
 	return EquipmentInstanceResponse{
 		ID:               e.ID,
 		Code:             e.Code,
@@ -238,8 +302,26 @@ func (e *EquipmentInstance) ToResponse() EquipmentInstanceResponse {
 		Status:           e.Status,
 		Location:         e.Location,
 		Parts:            parts,
+		UsageHours:       e.UsageHours,
+		MaintenanceStates: states,
 		CreatedAt:        e.CreatedAt,
 		UpdatedAt:        e.UpdatedAt,
+	}
+}
+
+func (s *EquipmentInstanceMaintenanceState) ToResponse() EquipmentInstanceMaintenanceStateResponse {
+	var ruleResp *EquipmentModelMaintenanceRuleResponse
+	if s.Rule.RuleName != "" {
+		r := s.Rule.ToResponse()
+		ruleResp = &r
+	}
+	return EquipmentInstanceMaintenanceStateResponse{
+		ID:                        s.ID,
+		EquipmentInstanceID:       s.EquipmentInstanceID,
+		MaintenanceRuleID:         s.MaintenanceRuleID,
+		Rule:                      ruleResp,
+		LastMaintenanceAt:         s.LastMaintenanceAt,
+		LastMaintenanceUsageHours: s.LastMaintenanceUsageHours,
 	}
 }
 
@@ -357,4 +439,10 @@ type AssetResponse struct {
 	Parts         []AssetResponse           `json:"parts,omitempty"`
 	CreatedAt     time.Time                 `json:"created_at"`
 	UpdatedAt     time.Time                 `json:"updated_at"`
+}
+
+type RecordUsageRequest struct {
+	UsageHours        float64    `json:"usage_hours" binding:"required"`
+	MaintenanceDate   *time.Time `json:"maintenance_date,omitempty"`
+	MaintenanceRuleID *string    `json:"maintenance_rule_id,omitempty" binding:"omitempty,uuid"`
 }
