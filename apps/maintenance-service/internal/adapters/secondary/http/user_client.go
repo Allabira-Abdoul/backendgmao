@@ -22,7 +22,7 @@ type userClient struct {
 func NewUserClient(jwtManager *auth.JWTManager) secondary.UserClient {
 	url := os.Getenv("USER_SERVICE_URL")
 	if url == "" {
-		url = "http://127.0.0.1:8081"
+		url = "http://127.0.0.1:8100"
 	}
 	return &userClient{
 		gatewayURL: url,
@@ -50,7 +50,9 @@ func (c *userClient) GetUserName(ctx context.Context, id uuid.UUID) (string, err
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("user service returned %d", resp.StatusCode)
+		errResp := fmt.Errorf("user service returned %d", resp.StatusCode)
+		fmt.Printf("[UserClient] Error fetching user %s: %v\n", id, errResp)
+		return "", errResp
 	}
 
 	var envelope struct {

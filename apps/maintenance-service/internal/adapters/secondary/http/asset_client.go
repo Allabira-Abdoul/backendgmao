@@ -23,7 +23,7 @@ type assetClient struct {
 func NewAssetClient(jwtManager *auth.JWTManager) secondary.AssetClient {
 	url := os.Getenv("ASSET_SERVICE_URL")
 	if url == "" {
-		url = "http://127.0.0.1:8083"
+		url = "http://127.0.0.1:8102"
 	}
 	return &assetClient{
 		gatewayURL: url,
@@ -33,8 +33,8 @@ func NewAssetClient(jwtManager *auth.JWTManager) secondary.AssetClient {
 }
 
 func (c *assetClient) GetAssetName(ctx context.Context, id uuid.UUID) (string, error) {
-	// Using the public endpoint since asset-service doesn't have an internal endpoint yet
-	reqURL := fmt.Sprintf("%s/api/asset/assets/%s", c.gatewayURL, id.String())
+	// Using the service endpoint directly
+	reqURL := fmt.Sprintf("%s/instances/equipment/%s", c.gatewayURL, id.String())
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
@@ -51,18 +51,25 @@ func (c *assetClient) GetAssetName(ctx context.Context, id uuid.UUID) (string, e
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("asset service returned %d", resp.StatusCode)
+		errResp := fmt.Errorf("asset service returned %d", resp.StatusCode)
+		fmt.Printf("[AssetClient] Error fetching asset %s: %v\n", id, errResp)
+		return "", errResp
 	}
 
-	var envelope struct {
-		Data struct {
+	var instance struct {
+		Code           string `json:"code"`
+		EquipmentModel struct {
 			Name string `json:"name"`
-		} `json:"data"`
+		} `json:"equipment_model"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&instance); err != nil {
 		return "", err
 	}
-	return envelope.Data.Name, nil
+
+	if instance.EquipmentModel.Name != "" {
+		return fmt.Sprintf("%s (%s)", instance.EquipmentModel.Name, instance.Code), nil
+	}
+	return instance.Code, nil
 }
 
 func (c *assetClient) GetAssetNames(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error) {
