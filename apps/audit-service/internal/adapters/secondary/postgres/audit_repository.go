@@ -21,10 +21,21 @@ func NewAuditRepository(db *gorm.DB) secondary.AuditRepository {
 
 // InitPartitionedTable drops the existing non-partitioned table (if any) and creates a partitioned one.
 func InitPartitionedTable(db *gorm.DB) error {
-	// Postgres doesn't allow altering a table to be partitioned. 
-	// We drop the existing table and recreate it.
-	// NOTE: This will drop existing audit logs. In a production scenario, a data migration is needed.
-	db.Exec("DROP TABLE IF EXISTS audit_logs;")
+	// Check if the table already exists
+	var exists bool
+	err := db.Raw(`SELECT EXISTS (
+		SELECT FROM information_schema.tables 
+		WHERE  table_schema = 'public'
+		AND    table_name   = 'audit_logs'
+	);`).Scan(&exists).Error
+
+	if err == nil && exists {
+		// Table already exists, just ensure current partitions are created
+		now := time.Now()
+		createPartition(db, now)
+		createPartition(db, now.AddDate(0, 1, 0))
+		return nil
+	}
 
 	createTableSQL := `
 	CREATE TABLE audit_logs (
