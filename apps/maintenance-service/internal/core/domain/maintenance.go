@@ -272,3 +272,21 @@ type CreateInspectionRequest struct {
 	PerformedBy        string                           `json:"performed_by" binding:"required,uuid"`
 	Measurements       []CreateMetricMeasurementRequest `json:"measurements,omitempty" binding:"omitempty,dive"`
 }
+
+// UpdateInterventionRequest is the DTO to update an intervention.
+type UpdateInterventionRequest struct {
+	Description         *string                          `json:"description,omitempty" binding:"omitempty,min=2"`
+	MaintenanceCategory *string                          `json:"maintenance_category,omitempty"`
+	MaintenanceType     *string                          `json:"maintenance_type,omitempty"`
+	IsMetricMeasurement *bool                            `json:"is_metric_measurement,omitempty"`
+	Measurements        []CreateMetricMeasurementRequest `json:"measurements,omitempty" binding:"omitempty,dive"`
+}
+
+// UpdateInspectionRequest is the DTO to update an inspection.
+type UpdateInspectionRequest struct {
+	Observations       *string                          `json:"observations,omitempty" binding:"omitempty,min=2"`
+	UsageHoursRecorded *float64                         `json:"usage_hours_recorded,omitempty"`
+	RequiresAttention  *bool                            `json:"requires_attention,omitempty"`
+	AttentionReason    *string                          `json:"attention_reason,omitempty"`
+	Measurements       []CreateMetricMeasurementRequest `json:"measurements,omitempty" binding:"omitempty,dive"`
+}

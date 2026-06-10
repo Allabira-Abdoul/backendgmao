@@ -32,11 +32,13 @@ func RegisterRoutes(
 			workorders.POST("/:id/interventions", maintenanceHandler.CreateIntervention)
 			workorders.GET("/:id/interventions", maintenanceHandler.GetInterventions)
 			workorders.POST("/:id/interventions/:inv_id/start", maintenanceHandler.StartIntervention)
+			workorders.PUT("/:id/interventions/:inv_id", maintenanceHandler.UpdateIntervention)
 			workorders.POST("/:id/interventions/:inv_id/end", maintenanceHandler.EndIntervention)
 
 			// Inspections under work order
 			workorders.POST("/:id/inspections", maintenanceHandler.CreateInspection)
 			workorders.POST("/:id/inspections/:ins_id/start", maintenanceHandler.StartInspection)
+			workorders.PUT("/:id/inspections/:ins_id", maintenanceHandler.UpdateInspection)
 			workorders.POST("/:id/inspections/:ins_id/end", maintenanceHandler.EndInspection)
 		}
 	}

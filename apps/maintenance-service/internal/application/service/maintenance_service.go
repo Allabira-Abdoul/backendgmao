@@ -330,6 +330,57 @@ func (s *MaintenanceService) RecordIntervention(ctx context.Context, workOrderID
 	return &resp, nil
 }
 
+func (s *MaintenanceService) UpdateIntervention(ctx context.Context, workOrderID uuid.UUID, interventionID uuid.UUID, req domain.UpdateInterventionRequest) (*domain.InterventionResponse, error) {
+	inv, err := s.maintenanceRepo.FindInterventionByID(ctx, interventionID)
+	if err != nil || inv.WorkOrderID != workOrderID {
+		return nil, errors.New("intervention not found")
+	}
+
+	if req.Description != nil {
+		inv.Description = *req.Description
+	}
+	if req.MaintenanceCategory != nil {
+		inv.MaintenanceCategory = *req.MaintenanceCategory
+	}
+	if req.MaintenanceType != nil {
+		inv.MaintenanceType = *req.MaintenanceType
+	}
+	if req.IsMetricMeasurement != nil {
+		inv.IsMetricMeasurement = *req.IsMetricMeasurement
+	}
+
+	if len(req.Measurements) > 0 {
+		meas := make([]domain.MetricMeasurement, len(req.Measurements))
+		for i, mReq := range req.Measurements {
+			var compID *uuid.UUID
+			if mReq.ComponentID != nil && *mReq.ComponentID != "" {
+				parsedComp, err := uuid.Parse(*mReq.ComponentID)
+				if err == nil {
+					compID = &parsedComp
+				}
+			}
+			meas[i] = domain.MetricMeasurement{
+				ID:                  uuid.New(),
+				InterventionID:      &inv.ID,
+				ComponentID:         compID,
+				MetricName:          mReq.MetricName,
+				Value:               mReq.Value,
+				Unit:                mReq.Unit,
+				IsThresholdBreached: mReq.IsThresholdBreached,
+			}
+		}
+		inv.Measurements = append(inv.Measurements, meas...)
+	}
+
+	if err := s.maintenanceRepo.UpdateIntervention(ctx, inv); err != nil {
+		return nil, err
+	}
+
+	s.fireAudit(ctx, "UPDATE_INTERVENTION", fmt.Sprintf("Updated intervention %s", interventionID))
+	resp := s.buildInterventionResponse(ctx, inv)
+	return &resp, nil
+}
+
 func (s *MaintenanceService) StartIntervention(ctx context.Context, workOrderID uuid.UUID, interventionID uuid.UUID) (*domain.InterventionResponse, error) {
 	inv, err := s.maintenanceRepo.FindInterventionByID(ctx, interventionID)
 	if err != nil || inv.WorkOrderID != workOrderID {
@@ -340,6 +391,13 @@ func (s *MaintenanceService) StartIntervention(ctx context.Context, workOrderID 
 	inv.StartedAt = &now
 	if err := s.maintenanceRepo.UpdateIntervention(ctx, inv); err != nil {
 		return nil, err
+	}
+
+	wo, _ := s.maintenanceRepo.FindWorkOrderByID(ctx, workOrderID)
+	if wo != nil && wo.Status == "PENDING" {
+		wo.Status = "IN_PROGRESS"
+		wo.UpdatedAt = now
+		_ = s.maintenanceRepo.UpdateWorkOrder(ctx, wo)
 	}
 
 	s.fireAudit(ctx, "START_INTERVENTION", fmt.Sprintf("Started intervention %s", interventionID))
@@ -458,6 +516,66 @@ func (s *MaintenanceService) CreateInspection(ctx context.Context, workOrderID u
 	return &resp, nil
 }
 
+func (s *MaintenanceService) UpdateInspection(ctx context.Context, workOrderID uuid.UUID, inspectionID uuid.UUID, req domain.UpdateInspectionRequest) (*domain.InspectionResponse, error) {
+	ins, err := s.maintenanceRepo.FindInspectionByID(ctx, inspectionID)
+	if err != nil || ins.WorkOrderID != workOrderID {
+		return nil, errors.New("inspection not found")
+	}
+
+	if req.Observations != nil {
+		ins.Observations = *req.Observations
+	}
+	if req.UsageHoursRecorded != nil {
+		ins.UsageHoursRecorded = req.UsageHoursRecorded
+	}
+	if req.RequiresAttention != nil {
+		ins.RequiresAttention = *req.RequiresAttention
+	}
+	if req.AttentionReason != nil {
+		ins.AttentionReason = *req.AttentionReason
+	}
+
+	if len(req.Measurements) > 0 {
+		meas := make([]domain.MetricMeasurement, len(req.Measurements))
+		for i, mReq := range req.Measurements {
+			var compID *uuid.UUID
+			if mReq.ComponentID != nil && *mReq.ComponentID != "" {
+				parsedComp, err := uuid.Parse(*mReq.ComponentID)
+				if err == nil {
+					compID = &parsedComp
+				}
+			}
+			meas[i] = domain.MetricMeasurement{
+				ID:                  uuid.New(),
+				InspectionID:        &ins.ID,
+				ComponentID:         compID,
+				MetricName:          mReq.MetricName,
+				Value:               mReq.Value,
+				Unit:                mReq.Unit,
+				IsThresholdBreached: mReq.IsThresholdBreached,
+			}
+		}
+		ins.Measurements = append(ins.Measurements, meas...)
+	}
+
+	if err := s.maintenanceRepo.UpdateInspection(ctx, ins); err != nil {
+		return nil, err
+	}
+
+	if req.UsageHoursRecorded != nil && s.assetClient != nil {
+		if wo, err := s.maintenanceRepo.FindWorkOrderByID(ctx, workOrderID); err == nil && wo != nil {
+			go func() {
+				bgCtx := context.Background()
+				_ = s.assetClient.RecordUsage(bgCtx, wo.AssetID, *req.UsageHoursRecorded, nil, nil)
+			}()
+		}
+	}
+
+	s.fireAudit(ctx, "UPDATE_INSPECTION", fmt.Sprintf("Updated inspection %s", inspectionID))
+	resp := s.buildInspectionResponse(ctx, ins)
+	return &resp, nil
+}
+
 func (s *MaintenanceService) StartInspection(ctx context.Context, workOrderID uuid.UUID, inspectionID uuid.UUID) (*domain.InspectionResponse, error) {
 	ins, err := s.maintenanceRepo.FindInspectionByID(ctx, inspectionID)
 	if err != nil || ins.WorkOrderID != workOrderID {
@@ -468,6 +586,13 @@ func (s *MaintenanceService) StartInspection(ctx context.Context, workOrderID uu
 	ins.StartedAt = &now
 	if err := s.maintenanceRepo.UpdateInspection(ctx, ins); err != nil {
 		return nil, err
+	}
+
+	wo, _ := s.maintenanceRepo.FindWorkOrderByID(ctx, workOrderID)
+	if wo != nil && wo.Status == "PENDING" {
+		wo.Status = "IN_PROGRESS"
+		wo.UpdatedAt = now
+		_ = s.maintenanceRepo.UpdateWorkOrder(ctx, wo)
 	}
 
 	s.fireAudit(ctx, "START_INSPECTION", fmt.Sprintf("Started inspection %s", inspectionID))

@@ -191,6 +191,36 @@ func (h *MaintenanceHandler) StartIntervention(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
+// UpdateIntervention updates an intervention.
+func (h *MaintenanceHandler) UpdateIntervention(c *gin.Context) {
+	woIDStr := c.Param("id")
+	woID, err := uuid.Parse(woIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid work order UUID"})
+		return
+	}
+
+	invIDStr := c.Param("inv_id")
+	invID, err := uuid.Parse(invIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid intervention UUID"})
+		return
+	}
+
+	var req domain.UpdateInterventionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp, err := h.maintenanceService.UpdateIntervention(c.Request.Context(), woID, invID, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
 // EndIntervention ends an intervention.
 func (h *MaintenanceHandler) EndIntervention(c *gin.Context) {
 	woIDStr := c.Param("id")
@@ -237,6 +267,36 @@ func (h *MaintenanceHandler) CreateInspection(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, resp)
+}
+
+// UpdateInspection updates an inspection.
+func (h *MaintenanceHandler) UpdateInspection(c *gin.Context) {
+	woIDStr := c.Param("id")
+	woID, err := uuid.Parse(woIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid work order UUID"})
+		return
+	}
+
+	insIDStr := c.Param("ins_id")
+	insID, err := uuid.Parse(insIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid inspection UUID"})
+		return
+	}
+
+	var req domain.UpdateInspectionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp, err := h.maintenanceService.UpdateInspection(c.Request.Context(), woID, insID, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 // StartInspection starts an inspection.
