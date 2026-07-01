@@ -30,6 +30,7 @@ func RegisterRoutes(
 			models.POST("/equipment", middleware.RequirePrivilege("ASSET_CREATE"), assetHandler.CreateEquipmentModel)
 			models.POST("/parts", middleware.RequirePrivilege("ASSET_CREATE"), assetHandler.CreatePartModel)
 			models.GET("/equipment", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetEquipmentModels)
+			models.GET("/equipment/:id", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetEquipmentModelByID)
 			models.GET("/parts", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetPartModels)
 
 			models.PUT("/equipment/:id", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.UpdateEquipmentModel)
@@ -54,6 +55,7 @@ func RegisterRoutes(
 			instances.GET("/equipment/code/:code", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetEquipmentInstanceByCode)
 			instances.GET("/equipment/:id", middleware.RequirePrivilege("ASSET_VIEW"), assetHandler.GetEquipmentInstanceByID)
 			instances.PUT("/equipment/:id/location", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.UpdateEquipmentLocation)
+			instances.PUT("/equipment/:id/status", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.UpdateEquipmentStatus)
 
 			instances.POST("/parts/:id/move", middleware.RequirePrivilege("ASSET_UPDATE"), assetHandler.MovePartInstance)
 		}

@@ -74,6 +74,54 @@ func (Inspection) TableName() string {
 	return "inspections"
 }
 
+// CounterReading represents a specific counter measurement taken during an inspection.
+type CounterReading struct {
+	ID           uuid.UUID  `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	AssetID      uuid.UUID  `gorm:"column:asset_id;type:uuid;not null" json:"asset_id"`
+	InspectionID *uuid.UUID `gorm:"column:inspection_id;type:uuid" json:"inspection_id"`
+	Value        float64    `gorm:"column:value;not null" json:"value"`
+	Unit         string     `gorm:"column:unit;not null" json:"unit"`
+	RecordedAt   time.Time  `gorm:"column:recorded_at" json:"recorded_at"`
+	RecordedBy   uuid.UUID  `gorm:"column:recorded_by;type:uuid;not null" json:"recorded_by"`
+}
+
+// TableName overrides GORM's default table name.
+func (CounterReading) TableName() string {
+	return "counter_readings"
+}
+
+// CounterReadingResponse is the DTO for CounterReading.
+type CounterReadingResponse struct {
+	ID           uuid.UUID  `json:"id"`
+	AssetID      uuid.UUID  `json:"asset_id"`
+	InspectionID *uuid.UUID `json:"inspection_id,omitempty"`
+	Value        float64    `json:"value"`
+	Unit         string     `json:"unit"`
+	RecordedAt   time.Time  `json:"recorded_at"`
+	RecordedBy   uuid.UUID  `json:"recorded_by"`
+}
+
+// ToResponse converts a CounterReading to a CounterReadingResponse.
+func (c *CounterReading) ToResponse() CounterReadingResponse {
+	return CounterReadingResponse{
+		ID:           c.ID,
+		AssetID:      c.AssetID,
+		InspectionID: c.InspectionID,
+		Value:        c.Value,
+		Unit:         c.Unit,
+		RecordedAt:   c.RecordedAt,
+		RecordedBy:   c.RecordedBy,
+	}
+}
+
+// CreateCounterReadingRequest represents the request to create a reading.
+type CreateCounterReadingRequest struct {
+	AssetID      string  `json:"asset_id" binding:"required,uuid"`
+	InspectionID *string `json:"inspection_id" binding:"omitempty,uuid"`
+	Value        float64 `json:"value" binding:"required"`
+	Unit         string  `json:"unit" binding:"required"`
+}
+
 // OrdreTravailResponse represents the DTO returned by API endpoints.
 type OrdreTravailResponse struct {
 	ID                  uuid.UUID              `json:"id"`

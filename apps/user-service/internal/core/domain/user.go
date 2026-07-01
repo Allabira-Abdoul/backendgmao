@@ -139,7 +139,7 @@ type UpdateUserRequest struct {
 	Email    *string `json:"email,omitempty" binding:"omitempty,email"`
 	Status   *string `json:"status,omitempty" binding:"omitempty,oneof=ACTIVE INACTIVE LOCKED"`
 	RoleID   *string `json:"role_id,omitempty" binding:"omitempty,uuid"`
-	TeamID   *string `json:"team_id,omitempty" binding:"omitempty,uuid"`
+	TeamID   *string `json:"team_id,omitempty"`
 }
 
 // ChangePasswordRequest is the DTO for a user changing their own password.

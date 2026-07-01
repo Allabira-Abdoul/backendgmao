@@ -20,6 +20,8 @@ type AssetRepository interface {
 	UpdateEquipmentModel(ctx context.Context, model *domain.EquipmentModel) error
 	CreateEquipmentModelPartRequirement(ctx context.Context, req *domain.EquipmentModelPartRequirement) error
 	DeleteEquipmentModelPartRequirements(ctx context.Context, modelID uuid.UUID) error
+	CreateEquipmentModelMaintenanceRule(ctx context.Context, rule *domain.EquipmentModelMaintenanceRule) error
+	DeleteEquipmentModelMaintenanceRules(ctx context.Context, modelID uuid.UUID) error
 
 	// Suppliers
 	CreateSupplier(ctx context.Context, supplier *domain.Supplier) error

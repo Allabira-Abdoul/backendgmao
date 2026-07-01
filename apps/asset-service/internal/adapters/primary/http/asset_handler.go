@@ -60,6 +60,22 @@ func (h *AssetHandler) GetEquipmentModels(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
+func (h *AssetHandler) GetEquipmentModelByID(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := uuid.Parse(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid uuid"})
+		return
+	}
+
+	res, err := h.service.GetEquipmentModelByID(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
 func (h *AssetHandler) GetPartModels(c *gin.Context) {
 	res, err := h.service.GetPartModels(c.Request.Context())
 	if err != nil {
@@ -422,7 +438,26 @@ func (h *AssetHandler) DeleteSupplier(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "deleted successfully"})
 }
 
-// --- Thresholds ---
+func (h *AssetHandler) UpdateEquipmentStatus(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := uuid.Parse(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid equipment instance id"})
+		return
+	}
 
+	var req struct {
+		Status string `json:"status" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
+	if err := h.service.UpdateEquipmentStatus(c.Request.Context(), id, req.Status); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
+	c.JSON(http.StatusOK, gin.H{"message": "status updated successfully"})
+}

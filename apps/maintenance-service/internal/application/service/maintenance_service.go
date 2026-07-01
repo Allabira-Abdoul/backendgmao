@@ -206,8 +206,112 @@ func (s *MaintenanceService) DeleteWorkOrder(ctx context.Context, id uuid.UUID) 
 		return err
 	}
 	
-	s.fireAudit(ctx, "DELETE_WORK_ORDER", fmt.Sprintf("Deleted work order %s", id))
+	s.fireAudit(ctx, "COMPUTE_ANALYTICS", fmt.Sprintf("Asset %s computed", id))
+
 	return nil
+}
+
+// ----------------------------------------------------------------------------
+// Defect Alerts
+// ----------------------------------------------------------------------------
+
+func (s *MaintenanceService) CreateDefectAlert(ctx context.Context, assetID uuid.UUID, reportedBy uuid.UUID, title, description, imageURL string) (*domain.DefectAlertResponse, error) {
+	alert := &domain.DefectAlert{
+		ID:          uuid.New(),
+		AssetID:     assetID,
+		ReportedBy:  reportedBy,
+		Title:       title,
+		Description: description,
+		ImageURL:    imageURL,
+		Status:      domain.DefectStatusPending,
+	}
+
+	if err := s.maintenanceRepo.CreateDefectAlert(ctx, alert); err != nil {
+		return nil, fmt.Errorf("create defect alert: %w", err)
+	}
+
+	s.fireAudit(ctx, "CREATE_DEFECT_ALERT", fmt.Sprintf("Alert %s created for asset %s", alert.ID, assetID))
+
+	// Get asset info and user info to return fully populated response
+	var assetName, reporterName string
+	if name, err := s.assetClient.GetAssetName(ctx, assetID); err == nil {
+		assetName = name
+	}
+	if name, err := s.userClient.GetUserName(ctx, reportedBy); err == nil {
+		reporterName = name
+	}
+
+	resp := alert.ToResponse(assetName, reporterName)
+	return &resp, nil
+}
+
+func (s *MaintenanceService) GetAllDefectAlerts(ctx context.Context) ([]domain.DefectAlertResponse, error) {
+	alerts, err := s.maintenanceRepo.FindAllDefectAlerts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("find all defect alerts: %w", err)
+	}
+
+	var res []domain.DefectAlertResponse
+	for _, alert := range alerts {
+		var assetName, reporterName string
+		if name, err := s.assetClient.GetAssetName(ctx, alert.AssetID); err == nil {
+			assetName = name
+		}
+		if name, err := s.userClient.GetUserName(ctx, alert.ReportedBy); err == nil {
+			reporterName = name
+		}
+		res = append(res, alert.ToResponse(assetName, reporterName))
+	}
+	return res, nil
+}
+
+func (s *MaintenanceService) ReviewDefectAlert(ctx context.Context, id uuid.UUID, req domain.ReviewDefectAlertRequest) (*domain.DefectAlertResponse, error) {
+	alert, err := s.maintenanceRepo.FindDefectAlertByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("find defect alert: %w", err)
+	}
+
+	if alert.Status != domain.DefectStatusPending {
+		return nil, fmt.Errorf("defect alert is already %s", alert.Status)
+	}
+
+	alert.Status = req.Status
+	if err := s.maintenanceRepo.UpdateDefectAlert(ctx, alert); err != nil {
+		return nil, fmt.Errorf("update defect alert: %w", err)
+	}
+
+	s.fireAudit(ctx, "REVIEW_DEFECT_ALERT", fmt.Sprintf("Alert %s marked as %s", alert.ID, alert.Status))
+
+	// If approved, create a work order automatically
+	if req.Status == domain.DefectStatusApproved {
+		woTitle := fmt.Sprintf("Defect: %s", alert.Title)
+		woDesc := fmt.Sprintf("Generated from defect alert %s.\n\nDescription: %s\nReview Notes: %s", alert.ID, alert.Description, req.ReviewNotes)
+		
+		woReq := domain.CreateOrdreTravailRequest{
+			Title:               woTitle,
+			Description:         woDesc,
+			AssetID:             alert.AssetID.String(),
+			Type:                "INTERVENTION",
+			Priority:            "HIGH",
+			MaintenanceCategory: "CORRECTIVE",
+			MaintenanceType:     "CURATIVE",
+		}
+		
+		// Ignore error here so that even if WO creation fails, the alert is still approved.
+		// In a real system, you might wrap this in a database transaction.
+		_, _ = s.CreateWorkOrder(ctx, woReq)
+	}
+
+	var assetName, reporterName string
+	if name, err := s.assetClient.GetAssetName(ctx, alert.AssetID); err == nil {
+		assetName = name
+	}
+	if name, err := s.userClient.GetUserName(ctx, alert.ReportedBy); err == nil {
+		reporterName = name
+	}
+
+	resp := alert.ToResponse(assetName, reporterName)
+	return &resp, nil
 }
 
 func (s *MaintenanceService) GetWorkOrder(ctx context.Context, id uuid.UUID) (*domain.OrdreTravailResponse, error) {
@@ -400,6 +504,13 @@ func (s *MaintenanceService) StartIntervention(ctx context.Context, workOrderID 
 		_ = s.maintenanceRepo.UpdateWorkOrder(ctx, wo)
 	}
 
+	if wo != nil && s.assetClient != nil {
+		go func() {
+			bgCtx := context.Background()
+			_ = s.assetClient.UpdateAssetStatus(bgCtx, wo.AssetID, "DOWN")
+		}()
+	}
+
 	s.fireAudit(ctx, "START_INTERVENTION", fmt.Sprintf("Started intervention %s", interventionID))
 	resp := s.buildInterventionResponse(ctx, inv)
 	return &resp, nil
@@ -422,6 +533,13 @@ func (s *MaintenanceService) EndIntervention(ctx context.Context, workOrderID uu
 		wo.Status = "COMPLETED"
 		wo.UpdatedAt = now
 		_ = s.maintenanceRepo.UpdateWorkOrder(ctx, wo)
+
+		if s.assetClient != nil {
+			go func() {
+				bgCtx := context.Background()
+				_ = s.assetClient.UpdateAssetStatus(bgCtx, wo.AssetID, "OPERATIONAL")
+			}()
+		}
 
 		// If this is a PREVENTIVE SYSTEMATIC maintenance, we can reset the maintenance schedule
 		if wo.MaintenanceCategory == "PREVENTIVE" && wo.MaintenanceType == "SYSTEMATIC" && s.assetClient != nil {
@@ -648,7 +766,7 @@ func (s *MaintenanceService) buildOrdreTravailResponse(ctx context.Context, wo *
 	}
 
 	assignedToName := "Unknown User"
-	if wo.AssignedTo != nil {
+	if wo.AssignedTo != nil && *wo.AssignedTo != uuid.Nil {
 		if name, err := s.userClient.GetUserName(ctx, *wo.AssignedTo); err == nil {
 			assignedToName = name
 		}
@@ -657,8 +775,12 @@ func (s *MaintenanceService) buildOrdreTravailResponse(ctx context.Context, wo *
 	perfNames := make(map[uuid.UUID]string)
 	for _, inv := range wo.Interventions {
 		if _, ok := perfNames[inv.PerformedBy]; !ok {
-			if name, err := s.userClient.GetUserName(ctx, inv.PerformedBy); err == nil {
-				perfNames[inv.PerformedBy] = name
+			if inv.PerformedBy != uuid.Nil {
+				if name, err := s.userClient.GetUserName(ctx, inv.PerformedBy); err == nil {
+					perfNames[inv.PerformedBy] = name
+				} else {
+					perfNames[inv.PerformedBy] = "Unknown User"
+				}
 			} else {
 				perfNames[inv.PerformedBy] = "Unknown User"
 			}
@@ -669,8 +791,12 @@ func (s *MaintenanceService) buildOrdreTravailResponse(ctx context.Context, wo *
 	
 	for _, ins := range wo.Inspections {
 		if _, ok := perfNames[ins.PerformedBy]; !ok {
-			if name, err := s.userClient.GetUserName(ctx, ins.PerformedBy); err == nil {
-				perfNames[ins.PerformedBy] = name
+			if ins.PerformedBy != uuid.Nil {
+				if name, err := s.userClient.GetUserName(ctx, ins.PerformedBy); err == nil {
+					perfNames[ins.PerformedBy] = name
+				} else {
+					perfNames[ins.PerformedBy] = "Unknown User"
+				}
 			} else {
 				perfNames[ins.PerformedBy] = "Unknown User"
 			}
@@ -687,8 +813,10 @@ func (s *MaintenanceService) buildInterventionResponse(ctx context.Context, inv 
 	}
 
 	perfName := "Unknown User"
-	if name, err := s.userClient.GetUserName(ctx, inv.PerformedBy); err == nil {
-		perfName = name
+	if inv.PerformedBy != uuid.Nil {
+		if name, err := s.userClient.GetUserName(ctx, inv.PerformedBy); err == nil {
+			perfName = name
+		}
 	}
 
 	compNames := make(map[uuid.UUID]string)
@@ -702,10 +830,102 @@ func (s *MaintenanceService) buildInspectionResponse(ctx context.Context, ins *d
 	}
 
 	perfName := "Unknown User"
-	if name, err := s.userClient.GetUserName(ctx, ins.PerformedBy); err == nil {
-		perfName = name
+	if ins.PerformedBy != uuid.Nil {
+		if name, err := s.userClient.GetUserName(ctx, ins.PerformedBy); err == nil {
+			perfName = name
+		}
 	}
 
 	compNames := make(map[uuid.UUID]string)
 	return ins.ToResponse(woTitle, perfName, compNames)
+}
+
+func (s *MaintenanceService) HandleAssetCreated(ctx context.Context, assetID uuid.UUID, modelID uuid.UUID) error {
+	// Fetch the equipment model from asset service
+	modelMap, err := s.assetClient.GetEquipmentModel(ctx, modelID)
+	if err != nil {
+		return fmt.Errorf("failed to fetch equipment model: %w", err)
+	}
+
+	// Safely parse maintenance rules from map
+	rulesInterface, ok := modelMap["maintenance_rules"]
+	if !ok || rulesInterface == nil {
+		// No rules to schedule
+		return nil
+	}
+
+	rules, ok := rulesInterface.([]interface{})
+	if !ok {
+		return fmt.Errorf("invalid maintenance rules format")
+	}
+
+	for _, rInterface := range rules {
+		rule, ok := rInterface.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		title := ""
+		if rn, ok := rule["rule_name"].(string); ok {
+			title = rn
+		}
+
+		var intervalMonths *int
+		if im, ok := rule["interval_months"].(float64); ok { // JSON decodes numbers as float64
+			v := int(im)
+			intervalMonths = &v
+		}
+
+		var intervalHours *float64
+		if ih, ok := rule["interval_hours"].(float64); ok {
+			intervalHours = &ih
+		}
+
+		frequency := "USAGE_BASED"
+		requireCounter := false
+
+		if intervalMonths != nil {
+			if *intervalMonths == 1 {
+				frequency = "MONTHLY"
+			} else if *intervalMonths == 12 {
+				frequency = "YEARLY"
+			} else {
+				frequency = fmt.Sprintf("EVERY_%d_MONTHS", *intervalMonths)
+			}
+		}
+
+		// Simplified frequency determination, if a rule says daily, it might have interval_months = 0 and some other flag
+		// For now we'll just map MONTHLY or USAGE_BASED
+
+		var nextDate *time.Time
+		if intervalMonths != nil && *intervalMonths > 0 {
+			nd := time.Now().AddDate(0, *intervalMonths, 0)
+			nextDate = &nd
+		}
+
+		schedule := &domain.MaintenanceSchedule{
+			ID:                    uuid.New(),
+			AssetID:               assetID,
+			Title:                 fmt.Sprintf("Preventive Maintenance: %s", title),
+			Description:           "Generated from manufacturer baseline rule",
+			Frequency:             frequency,
+			IntervalMonths:        intervalMonths,
+			IntervalHours:         intervalHours,
+			NextScheduledDate:     nextDate,
+			NextScheduledUsage:    intervalHours,
+			MaintenanceCategory:   "PREVENTIVE",
+			MaintenanceType:       "SYSTEMATIC",
+			IsActive:              true,
+			RequireCounterReading: requireCounter,
+		}
+
+		if err := s.maintenanceRepo.CreateMaintenanceSchedule(ctx, schedule); err != nil {
+			// Log but continue
+			fmt.Printf("Failed to create maintenance schedule for asset %s: %v\n", assetID, err)
+		} else {
+			s.fireAudit(ctx, "CREATE_MAINTENANCE_SCHEDULE", fmt.Sprintf("Created schedule %s for asset %s", schedule.ID, assetID))
+		}
+	}
+
+	return nil
 }

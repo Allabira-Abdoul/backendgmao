@@ -17,4 +17,5 @@ type AssetClient interface {
 	GetAssetNames(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error)
 	UpdateAssetStatus(ctx context.Context, id uuid.UUID, status string) error
 	RecordUsage(ctx context.Context, id uuid.UUID, usageHours float64, maintenanceDate *time.Time, maintenanceRuleID *string) error
+	GetEquipmentModel(ctx context.Context, id uuid.UUID) (map[string]interface{}, error)
 }

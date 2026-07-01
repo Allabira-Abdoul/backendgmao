@@ -41,5 +41,27 @@ func RegisterRoutes(
 			workorders.PUT("/:id/inspections/:ins_id", maintenanceHandler.UpdateInspection)
 			workorders.POST("/:id/inspections/:ins_id/end", maintenanceHandler.EndInspection)
 		}
+
+		schedules := authenticated.Group("/schedules")
+		{
+			schedules.GET("", maintenanceHandler.HandleGetAllSchedules)
+			schedules.POST("", maintenanceHandler.HandleCreateSchedule)
+			schedules.PUT("/:id", maintenanceHandler.HandleUpdateSchedule)
+			schedules.GET("/asset/:asset_id", maintenanceHandler.HandleGetAssetSchedules)
+		}
+
+		readings := authenticated.Group("/readings")
+		{
+			readings.POST("", maintenanceHandler.HandleRecordCounterReading)
+			readings.GET("/asset/:asset_id", maintenanceHandler.HandleGetAssetReadings)
+		}
+
+		// Defect Alerts endpoints
+		alerts := authenticated.Group("/alerts")
+		{
+			alerts.POST("", maintenanceHandler.HandleCreateDefectAlert)
+			alerts.GET("", maintenanceHandler.HandleGetAllDefectAlerts)
+			alerts.PUT("/:id/review", maintenanceHandler.HandleReviewDefectAlert)
+		}
 	}
 }

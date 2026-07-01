@@ -27,7 +27,7 @@ func (r *assetRepository) CreatePartModel(ctx context.Context, model *domain.Par
 
 func (r *assetRepository) GetEquipmentModels(ctx context.Context) ([]domain.EquipmentModel, error) {
 	var models []domain.EquipmentModel
-	err := r.db.WithContext(ctx).Preload("Suppliers").Preload("Suppliers.Supplier").Preload("PartRequirements").Preload("PartRequirements.PartModel").Find(&models).Error
+	err := r.db.WithContext(ctx).Preload("Suppliers").Preload("Suppliers.Supplier").Preload("PartRequirements").Preload("PartRequirements.PartModel").Preload("MaintenanceRules").Find(&models).Error
 	return models, err
 }
 
@@ -39,7 +39,7 @@ func (r *assetRepository) GetPartModels(ctx context.Context) ([]domain.PartModel
 
 func (r *assetRepository) GetEquipmentModelByID(ctx context.Context, id uuid.UUID) (*domain.EquipmentModel, error) {
 	var model domain.EquipmentModel
-	err := r.db.WithContext(ctx).Preload("Suppliers").Preload("Suppliers.Supplier").Preload("PartRequirements").Preload("PartRequirements.PartModel").First(&model, "id = ?", id).Error
+	err := r.db.WithContext(ctx).Preload("Suppliers").Preload("Suppliers.Supplier").Preload("PartRequirements").Preload("PartRequirements.PartModel").Preload("MaintenanceRules").First(&model, "id = ?", id).Error
 	return &model, err
 }
 
@@ -131,6 +131,14 @@ func (r *assetRepository) CreateEquipmentModelPartRequirement(ctx context.Contex
 
 func (r *assetRepository) DeleteEquipmentModelPartRequirements(ctx context.Context, modelID uuid.UUID) error {
 	return r.db.WithContext(ctx).Where("equipment_model_id = ?", modelID).Delete(&domain.EquipmentModelPartRequirement{}).Error
+}
+
+func (r *assetRepository) CreateEquipmentModelMaintenanceRule(ctx context.Context, rule *domain.EquipmentModelMaintenanceRule) error {
+	return r.db.WithContext(ctx).Create(rule).Error
+}
+
+func (r *assetRepository) DeleteEquipmentModelMaintenanceRules(ctx context.Context, modelID uuid.UUID) error {
+	return r.db.WithContext(ctx).Where("equipment_model_id = ?", modelID).Delete(&domain.EquipmentModelMaintenanceRule{}).Error
 }
 
 func (r *assetRepository) UpdateSupplier(ctx context.Context, supplier *domain.Supplier) error {

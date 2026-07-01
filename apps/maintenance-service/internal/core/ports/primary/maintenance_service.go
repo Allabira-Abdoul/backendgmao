@@ -26,4 +26,18 @@ type MaintenanceService interface {
 	UpdateInspection(ctx context.Context, workOrderID uuid.UUID, inspectionID uuid.UUID, req domain.UpdateInspectionRequest) (*domain.InspectionResponse, error)
 	StartInspection(ctx context.Context, workOrderID uuid.UUID, inspectionID uuid.UUID) (*domain.InspectionResponse, error)
 	EndInspection(ctx context.Context, workOrderID uuid.UUID, inspectionID uuid.UUID) (*domain.InspectionResponse, error)
+
+	CreateMaintenanceSchedule(ctx context.Context, req domain.CreateMaintenanceScheduleRequest) (*domain.MaintenanceScheduleResponse, error)
+	UpdateMaintenanceSchedule(ctx context.Context, id uuid.UUID, req domain.UpdateMaintenanceScheduleRequest) (*domain.MaintenanceScheduleResponse, error)
+	GetMaintenanceSchedulesForAsset(ctx context.Context, assetID uuid.UUID) ([]domain.MaintenanceScheduleResponse, error)
+	GetAllMaintenanceSchedules(ctx context.Context) ([]domain.MaintenanceScheduleResponse, error)
+
+	RecordCounterReading(ctx context.Context, req domain.CreateCounterReadingRequest) (*domain.CounterReadingResponse, error)
+	GetCounterReadingsForAsset(ctx context.Context, assetID uuid.UUID) ([]domain.CounterReadingResponse, error)
+
+	CreateDefectAlert(ctx context.Context, assetID uuid.UUID, reportedBy uuid.UUID, title, description, imageURL string) (*domain.DefectAlertResponse, error)
+	GetAllDefectAlerts(ctx context.Context) ([]domain.DefectAlertResponse, error)
+	ReviewDefectAlert(ctx context.Context, id uuid.UUID, req domain.ReviewDefectAlertRequest) (*domain.DefectAlertResponse, error)
+
+	HandleAssetCreated(ctx context.Context, assetID uuid.UUID, modelID uuid.UUID) error
 }

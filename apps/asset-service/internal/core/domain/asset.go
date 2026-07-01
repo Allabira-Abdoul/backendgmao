@@ -361,11 +361,18 @@ type PartRequirementReq struct {
 	Quantity    int       `json:"quantity"`
 }
 
+type MaintenanceRuleReq struct {
+	RuleName       string   `json:"rule_name" binding:"required"`
+	IntervalHours  *float64 `json:"interval_hours"`
+	IntervalMonths *int     `json:"interval_months"`
+}
+
 type CreateEquipmentModelRequest struct {
 	Name             string               `json:"name" binding:"required"`
 	Category         string               `json:"category" binding:"required"`
 	Description      string               `json:"description"`
 	PartRequirements []PartRequirementReq `json:"part_requirements"`
+	MaintenanceRules []MaintenanceRuleReq `json:"maintenance_rules"`
 }
 
 type CreatePartModelRequest struct {
@@ -380,6 +387,7 @@ type UpdateEquipmentModelRequest struct {
 	Category         *string              `json:"category"`
 	Description      *string              `json:"description"`
 	PartRequirements []PartRequirementReq `json:"part_requirements"`
+	MaintenanceRules []MaintenanceRuleReq `json:"maintenance_rules"`
 }
 
 type UpdateEquipmentLocationRequest struct {

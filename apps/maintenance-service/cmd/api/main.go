@@ -20,6 +20,7 @@ import (
 	"backend-gmao/pkg/discovery"
 	"backend-gmao/pkg/eventbus"
 	importEventBus "backend-gmao/apps/maintenance-service/internal/adapters/secondary/eventbus"
+	primaryEventBus "backend-gmao/apps/maintenance-service/internal/adapters/primary/eventbus"
 
 	"github.com/gin-gonic/gin"
 )
@@ -58,7 +59,7 @@ func main() {
 
 	// --- Auto-Migrate Tables ---
 	log.Println("Running database migrations...")
-	if err := database.AutoMigrate(&domain.OrdreTravail{}, &domain.Intervention{}, &domain.Inspection{}, &domain.MetricMeasurement{}); err != nil {
+	if err := database.AutoMigrate(&domain.OrdreTravail{}, &domain.Intervention{}, &domain.Inspection{}, &domain.MetricMeasurement{}, &domain.MaintenanceSchedule{}, &domain.CounterReading{}, &domain.DefectAlert{}); err != nil {
 		log.Fatalf("Failed to migrate Maintenance tables: %v", err)
 	}
 	log.Println("Database migrations completed")
@@ -105,6 +106,11 @@ func main() {
 	auditClient := audit.NewClient("maintenance-service", jwtManagerForInternal)
 	maintenanceService := service.NewMaintenanceService(maintenanceRepo, analyticsClient, auditClient, userClient, assetClient, eventPublisher)
 
+	assetEventsHandler := primaryEventBus.NewAssetEventsHandler(bus, maintenanceService)
+	if err := assetEventsHandler.Start(); err != nil {
+		log.Fatalf("Failed to start AssetEventsHandler: %v", err)
+	}
+
 	// --- Register with Consul ---
 	err = registry.Register(serviceID, serviceName, host, port)
 	if err != nil {
@@ -113,6 +119,10 @@ func main() {
 
 	// --- Initialize Gin Router ---
 	router := gin.Default()
+
+	// Serve static files from the uploads directory
+	_ = os.MkdirAll("./uploads", os.ModePerm)
+	router.Static("/uploads", "./uploads")
 
 	// Health check
 	healthHandler := httphandler.NewHealthHandler(database)

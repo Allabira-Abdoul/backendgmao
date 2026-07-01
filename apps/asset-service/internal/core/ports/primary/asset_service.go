@@ -12,6 +12,7 @@ type AssetService interface {
 	CreateEquipmentModel(ctx context.Context, req domain.CreateEquipmentModelRequest) (domain.EquipmentModelResponse, error)
 	CreatePartModel(ctx context.Context, req domain.CreatePartModelRequest) (domain.PartModelResponse, error)
 	GetEquipmentModels(ctx context.Context) ([]domain.EquipmentModelResponse, error)
+	GetEquipmentModelByID(ctx context.Context, id uuid.UUID) (domain.EquipmentModelResponse, error)
 	GetPartModels(ctx context.Context) ([]domain.PartModelResponse, error)
 	UpdateEquipmentModel(ctx context.Context, id uuid.UUID, req domain.UpdateEquipmentModelRequest) (domain.EquipmentModelResponse, error)
 	UpdatePartModel(ctx context.Context, id uuid.UUID, req domain.UpdatePartModelRequest) (domain.PartModelResponse, error)

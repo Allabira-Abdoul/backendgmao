@@ -32,6 +32,9 @@ func NewUserClient(jwtManager *auth.JWTManager) secondary.UserClient {
 }
 
 func (c *userClient) GetUserName(ctx context.Context, id uuid.UUID) (string, error) {
+	if id == uuid.Nil {
+		return "", fmt.Errorf("user id is empty")
+	}
 	reqURL := fmt.Sprintf("%s/internal/by-id?id=%s", c.gatewayURL, id.String())
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
@@ -71,6 +74,9 @@ func (c *userClient) GetUserNames(ctx context.Context, ids []uuid.UUID) (map[uui
 	// Since performance is not a strict requirement for this POC, sequential is fine.
 	result := make(map[uuid.UUID]string)
 	for _, id := range ids {
+		if id == uuid.Nil {
+			continue
+		}
 		name, err := c.GetUserName(ctx, id)
 		if err == nil {
 			result[id] = name

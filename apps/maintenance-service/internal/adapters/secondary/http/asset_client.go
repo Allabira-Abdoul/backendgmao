@@ -84,7 +84,7 @@ func (c *assetClient) GetAssetNames(ctx context.Context, ids []uuid.UUID) (map[u
 }
 
 func (c *assetClient) UpdateAssetStatus(ctx context.Context, id uuid.UUID, status string) error {
-	reqURL := fmt.Sprintf("%s/api/asset/assets/%s", c.gatewayURL, id.String())
+	reqURL := fmt.Sprintf("%s/instances/equipment/%s/status", c.gatewayURL, id.String())
 	
 	payload := map[string]string{"status": status}
 	body, _ := json.Marshal(payload)
@@ -111,7 +111,7 @@ func (c *assetClient) UpdateAssetStatus(ctx context.Context, id uuid.UUID, statu
 }
 
 func (c *assetClient) RecordUsage(ctx context.Context, id uuid.UUID, usageHours float64, maintenanceDate *time.Time, maintenanceRuleID *string) error {
-	reqURL := fmt.Sprintf("%s/api/asset/instances/%s/record-usage", c.gatewayURL, id.String())
+	reqURL := fmt.Sprintf("%s/actions/instances/%s/record-usage", c.gatewayURL, id.String())
 	
 	payload := map[string]interface{}{
 		"usage_hours": usageHours,
@@ -144,4 +144,33 @@ func (c *assetClient) RecordUsage(ctx context.Context, id uuid.UUID, usageHours 
 		return fmt.Errorf("asset service returned %d when recording usage", resp.StatusCode)
 	}
 	return nil
+}
+
+func (c *assetClient) GetEquipmentModel(ctx context.Context, id uuid.UUID) (map[string]interface{}, error) {
+	reqURL := fmt.Sprintf("%s/models/equipment/%s", c.gatewayURL, id.String())
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	token, _ := c.jwtManager.GenerateInternalServiceToken("maintenance-service")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("asset service returned %d fetching equipment model", resp.StatusCode)
+	}
+
+	var model map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&model); err != nil {
+		return nil, err
+	}
+
+	return model, nil
 }

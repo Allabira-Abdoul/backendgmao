@@ -92,3 +92,75 @@ func (r *maintenanceRepository) FindInspectionByID(ctx context.Context, id uuid.
 func (r *maintenanceRepository) UpdateInspection(ctx context.Context, inspection *domain.Inspection) error {
 	return r.db.WithContext(ctx).Save(inspection).Error
 }
+
+func (r *maintenanceRepository) CreateMaintenanceSchedule(ctx context.Context, schedule *domain.MaintenanceSchedule) error {
+	return r.db.WithContext(ctx).Create(schedule).Error
+}
+
+func (r *maintenanceRepository) FindMaintenanceSchedulesByAssetID(ctx context.Context, assetID uuid.UUID) ([]domain.MaintenanceSchedule, error) {
+	var schedules []domain.MaintenanceSchedule
+	if err := r.db.WithContext(ctx).Where("asset_id = ?", assetID).Find(&schedules).Error; err != nil {
+		return nil, err
+	}
+	return schedules, nil
+}
+
+func (r *maintenanceRepository) FindAllMaintenanceSchedules(ctx context.Context) ([]domain.MaintenanceSchedule, error) {
+	var schedules []domain.MaintenanceSchedule
+	if err := r.db.WithContext(ctx).Find(&schedules).Error; err != nil {
+		return nil, err
+	}
+	return schedules, nil
+}
+
+func (r *maintenanceRepository) FindMaintenanceScheduleByID(ctx context.Context, id uuid.UUID) (*domain.MaintenanceSchedule, error) {
+	var schedule domain.MaintenanceSchedule
+	if err := r.db.WithContext(ctx).First(&schedule, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+	return &schedule, nil
+}
+
+func (r *maintenanceRepository) UpdateMaintenanceSchedule(ctx context.Context, schedule *domain.MaintenanceSchedule) error {
+	return r.db.WithContext(ctx).Save(schedule).Error
+}
+
+func (r *maintenanceRepository) CreateCounterReading(ctx context.Context, reading *domain.CounterReading) error {
+	return r.db.WithContext(ctx).Create(reading).Error
+}
+
+func (r *maintenanceRepository) FindCounterReadingsByAssetID(ctx context.Context, assetID uuid.UUID) ([]domain.CounterReading, error) {
+	var readings []domain.CounterReading
+	if err := r.db.WithContext(ctx).Where("asset_id = ?", assetID).Find(&readings).Error; err != nil {
+		return nil, err
+	}
+	return readings, nil
+}
+
+// ----------------------------------------------------------------------------
+// Defect Alerts
+// ----------------------------------------------------------------------------
+
+func (r *maintenanceRepository) CreateDefectAlert(ctx context.Context, alert *domain.DefectAlert) error {
+	return r.db.WithContext(ctx).Create(alert).Error
+}
+
+func (r *maintenanceRepository) FindAllDefectAlerts(ctx context.Context) ([]domain.DefectAlert, error) {
+	var alerts []domain.DefectAlert
+	if err := r.db.WithContext(ctx).Find(&alerts).Error; err != nil {
+		return nil, err
+	}
+	return alerts, nil
+}
+
+func (r *maintenanceRepository) FindDefectAlertByID(ctx context.Context, id uuid.UUID) (*domain.DefectAlert, error) {
+	var alert domain.DefectAlert
+	if err := r.db.WithContext(ctx).First(&alert, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+	return &alert, nil
+}
+
+func (r *maintenanceRepository) UpdateDefectAlert(ctx context.Context, alert *domain.DefectAlert) error {
+	return r.db.WithContext(ctx).Save(alert).Error
+}

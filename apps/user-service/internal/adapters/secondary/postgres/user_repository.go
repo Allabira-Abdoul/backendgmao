@@ -107,7 +107,7 @@ func (r *UserRepository) FindAll(ctx context.Context, offset, limit int) ([]doma
 
 // Update updates an existing user in the database.
 func (r *UserRepository) Update(ctx context.Context, user *domain.User) error {
-	result := r.db.WithContext(ctx).Save(user)
+	result := r.db.WithContext(ctx).Omit("Role", "Team").Save(user)
 	if result.Error != nil {
 		return fmt.Errorf("postgres update user: %w", result.Error)
 	}

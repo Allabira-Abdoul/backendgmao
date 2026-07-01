@@ -6,6 +6,7 @@ import (
 
 	"backend-gmao/apps/asset-service/internal/core/domain"
 	"backend-gmao/apps/asset-service/internal/core/ports/secondary"
+	"backend-gmao/pkg/middleware"
 	"fmt"
 	"github.com/google/uuid"
 )
@@ -15,9 +16,19 @@ type assetService struct {
 	eventPublisher secondary.EventPublisher
 }
 
-// NewAssetService creates a new Asset Service instance.
 func NewAssetService(repo secondary.AssetRepository, eventPublisher secondary.EventPublisher) *assetService {
 	return &assetService{repo: repo, eventPublisher: eventPublisher}
+}
+
+func getUserIDFromContext(ctx context.Context) *uuid.UUID {
+	userIDStr, ok := ctx.Value(middleware.ContextKeyUserID).(string)
+	if ok && userIDStr != "" {
+		uid, err := uuid.Parse(userIDStr)
+		if err == nil {
+			return &uid
+		}
+	}
+	return nil
 }
 
 func (s *assetService) CreateEquipmentModel(ctx context.Context, req domain.CreateEquipmentModelRequest) (domain.EquipmentModelResponse, error) {
@@ -41,6 +52,18 @@ func (s *assetService) CreateEquipmentModel(ctx context.Context, req domain.Crea
 		}
 		_ = s.repo.CreateEquipmentModelPartRequirement(ctx, reqModel)
 		model.PartRequirements = append(model.PartRequirements, *reqModel)
+	}
+
+	for _, rule := range req.MaintenanceRules {
+		ruleModel := &domain.EquipmentModelMaintenanceRule{
+			ID:               uuid.New(),
+			EquipmentModelID: model.ID,
+			RuleName:         rule.RuleName,
+			IntervalHours:    rule.IntervalHours,
+			IntervalMonths:   rule.IntervalMonths,
+		}
+		_ = s.repo.CreateEquipmentModelMaintenanceRule(ctx, ruleModel)
+		model.MaintenanceRules = append(model.MaintenanceRules, *ruleModel)
 	}
 
 	return model.ToResponse(), nil
@@ -74,6 +97,23 @@ func (s *assetService) UpdateEquipmentModel(ctx context.Context, id uuid.UUID, r
 			newReqs = append(newReqs, *reqModel)
 		}
 		model.PartRequirements = newReqs
+	}
+
+	if req.MaintenanceRules != nil {
+		_ = s.repo.DeleteEquipmentModelMaintenanceRules(ctx, id)
+		var newRules []domain.EquipmentModelMaintenanceRule
+		for _, rule := range req.MaintenanceRules {
+			ruleModel := &domain.EquipmentModelMaintenanceRule{
+				ID:               uuid.New(),
+				EquipmentModelID: id,
+				RuleName:         rule.RuleName,
+				IntervalHours:    rule.IntervalHours,
+				IntervalMonths:   rule.IntervalMonths,
+			}
+			_ = s.repo.CreateEquipmentModelMaintenanceRule(ctx, ruleModel)
+			newRules = append(newRules, *ruleModel)
+		}
+		model.MaintenanceRules = newRules
 	}
 
 	return model.ToResponse(), nil
@@ -124,6 +164,15 @@ func (s *assetService) GetEquipmentModels(ctx context.Context) ([]domain.Equipme
 		res[i] = m.ToResponse()
 	}
 	return res, nil
+}
+
+func (s *assetService) GetEquipmentModelByID(ctx context.Context, id uuid.UUID) (domain.EquipmentModelResponse, error) {
+	model, err := s.repo.GetEquipmentModelByID(ctx, id)
+	if err != nil || model == nil {
+		return domain.EquipmentModelResponse{}, errors.New("equipment model not found")
+	}
+
+	return model.ToResponse(), nil
 }
 
 func (s *assetService) GetPartModels(ctx context.Context) ([]domain.PartModelResponse, error) {
@@ -277,7 +326,7 @@ func (s *assetService) CreateEquipmentInstance(ctx context.Context, req domain.C
 				CurrentLocation:     instance.Location,
 			}
 			if err := s.repo.CreatePartInstance(ctx, partInst); err == nil {
-				s.eventPublisher.PublishAuditLog(ctx, "CREATE", "PART_INSTANCE", partInst.ID.String(), nil, map[string]interface{}{
+				s.eventPublisher.PublishAuditLog(ctx, "CREATE", "PART_INSTANCE", partInst.ID.String(), getUserIDFromContext(ctx), map[string]interface{}{
 					"auto_generated":        true,
 					"equipment_instance_id": instance.ID.String(),
 				})
@@ -285,14 +334,14 @@ func (s *assetService) CreateEquipmentInstance(ctx context.Context, req domain.C
 		}
 	}
 
-	// Emit Audit Log (ActorID is typically passed via context, but we can set it to nil for system actions if not present)
-	s.eventPublisher.PublishAuditLog(ctx, "CREATE", "EQUIPMENT_INSTANCE", instance.ID.String(), nil, map[string]interface{}{
+	// Emit Audit Log
+	s.eventPublisher.PublishAuditLog(ctx, "CREATE", "EQUIPMENT_INSTANCE", instance.ID.String(), getUserIDFromContext(ctx), map[string]interface{}{
 		"code":     instance.Code,
 		"model_id": instance.EquipmentModelID.String(),
 	})
 
 	// Emit Domain Event for Analytics
-	s.eventPublisher.PublishAssetCreated(ctx, instance.ID, instance.EquipmentModelID, model.Category, []string{})
+	s.eventPublisher.PublishAssetCreated(ctx, instance.ID, instance.EquipmentModelID, model.Category, []string{}, getUserIDFromContext(ctx))
 
 	return instance.ToResponse(), nil
 }
@@ -334,7 +383,7 @@ func (s *assetService) CreatePartInstance(ctx context.Context, req domain.Create
 		return domain.PartInstanceResponse{}, err
 	}
 
-	s.eventPublisher.PublishAuditLog(ctx, "CREATE", "PART_INSTANCE", instance.ID.String(), nil, map[string]interface{}{
+	s.eventPublisher.PublishAuditLog(ctx, "CREATE", "PART_INSTANCE", instance.ID.String(), getUserIDFromContext(ctx), map[string]interface{}{
 		"part_model_id":         instance.PartModelID.String(),
 		"equipment_instance_id": eqID,
 		"serial_number":         instance.SerialNumber,
@@ -387,14 +436,14 @@ func (s *assetService) UpdateEquipmentStatus(ctx context.Context, id uuid.UUID, 
 		return err
 	}
 
-	s.eventPublisher.PublishAuditLog(ctx, "STATUS_CHANGE", "EQUIPMENT_INSTANCE", instance.ID.String(), nil, map[string]interface{}{
+	s.eventPublisher.PublishAuditLog(ctx, "STATUS_CHANGE", "EQUIPMENT_INSTANCE", instance.ID.String(), getUserIDFromContext(ctx), map[string]interface{}{
 		"old_status": oldStatus,
 		"new_status": newStatus,
 	})
 
 	// Emit Domain Event for Analytics
 	if oldStatus != newStatus {
-		s.eventPublisher.PublishAssetStateChanged(ctx, instance.ID, oldStatus, newStatus)
+		s.eventPublisher.PublishAssetStateChanged(ctx, instance.ID, oldStatus, newStatus, getUserIDFromContext(ctx))
 	}
 
 	return nil
@@ -424,7 +473,7 @@ func (s *assetService) UpdateEquipmentLocation(ctx context.Context, id uuid.UUID
 		}
 	}
 
-	s.eventPublisher.PublishAuditLog(ctx, "LOCATION_CHANGE", "EQUIPMENT_INSTANCE", instance.ID.String(), nil, map[string]interface{}{
+	s.eventPublisher.PublishAuditLog(ctx, "LOCATION_CHANGE", "EQUIPMENT_INSTANCE", instance.ID.String(), getUserIDFromContext(ctx), map[string]interface{}{
 		"old_location": oldLocation,
 		"new_location": newLocation,
 	})
@@ -438,6 +487,7 @@ func (s *assetService) MovePartInstance(ctx context.Context, partInstanceID uuid
 		return domain.PartInstanceResponse{}, errors.New("part instance not found")
 	}
 
+	oldEq := instance.EquipmentInstanceID
 	var eqID *uuid.UUID
 	if req.EquipmentInstanceID != nil && *req.EquipmentInstanceID != "" {
 		parsed, err := uuid.Parse(*req.EquipmentInstanceID)
@@ -457,9 +507,10 @@ func (s *assetService) MovePartInstance(ctx context.Context, partInstanceID uuid
 		return domain.PartInstanceResponse{}, err
 	}
 
-	s.eventPublisher.PublishAuditLog(ctx, "MOVE", "PART_INSTANCE", instance.ID.String(), nil, map[string]interface{}{
-		"new_equipment_instance_id": eqID,
-		"new_location":              req.CurrentLocation,
+	s.eventPublisher.PublishAuditLog(ctx, "MOVE", "PART_INSTANCE", instance.ID.String(), getUserIDFromContext(ctx), map[string]interface{}{
+		"from_equipment": oldEq,
+		"to_equipment":   eqID,
+		"new_location":   req.CurrentLocation,
 	})
 
 	return instance.ToResponse(), nil

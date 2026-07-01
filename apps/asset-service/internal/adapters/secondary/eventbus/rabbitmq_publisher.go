@@ -42,40 +42,55 @@ func (p *RabbitMQPublisher) PublishAuditLog(ctx context.Context, action string, 
 	return p.bus.Publish(ctx, "audit.logs", "audit.log.asset", event)
 }
 
-func (p *RabbitMQPublisher) PublishAssetCreated(ctx context.Context, assetID uuid.UUID, modelID uuid.UUID, categoryName string, tags []string) error {
+func (p *RabbitMQPublisher) PublishAssetCreated(ctx context.Context, assetID uuid.UUID, modelID uuid.UUID, categoryName string, tags []string, userID *uuid.UUID) error {
+	payload := map[string]interface{}{
+		"asset_id":      assetID.String(),
+		"model_id":      modelID.String(),
+		"category_name": categoryName,
+		"tags":          tags,
+	}
+	if userID != nil {
+		payload["user_id"] = userID.String()
+	}
+
 	event := eventbus.Event{
-		Type: "ASSET_CREATED",
-		Payload: map[string]interface{}{
-			"asset_id":      assetID.String(),
-			"model_id":      modelID.String(),
-			"category_name": categoryName,
-			"tags":          tags,
-		},
+		Type:    "ASSET_CREATED",
+		Payload: payload,
 	}
 	return p.bus.Publish(ctx, "asset.events", "asset.created", event)
 }
 
-func (p *RabbitMQPublisher) PublishAssetUpdated(ctx context.Context, assetID uuid.UUID, modelID uuid.UUID, categoryName string, tags []string) error {
+func (p *RabbitMQPublisher) PublishAssetUpdated(ctx context.Context, assetID uuid.UUID, modelID uuid.UUID, categoryName string, tags []string, userID *uuid.UUID) error {
+	payload := map[string]interface{}{
+		"asset_id":      assetID.String(),
+		"model_id":      modelID.String(),
+		"category_name": categoryName,
+		"tags":          tags,
+	}
+	if userID != nil {
+		payload["user_id"] = userID.String()
+	}
+
 	event := eventbus.Event{
-		Type: "ASSET_UPDATED",
-		Payload: map[string]interface{}{
-			"asset_id":      assetID.String(),
-			"model_id":      modelID.String(),
-			"category_name": categoryName,
-			"tags":          tags,
-		},
+		Type:    "ASSET_UPDATED",
+		Payload: payload,
 	}
 	return p.bus.Publish(ctx, "asset.events", "asset.updated", event)
 }
 
-func (p *RabbitMQPublisher) PublishAssetStateChanged(ctx context.Context, assetID uuid.UUID, oldState string, newState string) error {
+func (p *RabbitMQPublisher) PublishAssetStateChanged(ctx context.Context, assetID uuid.UUID, oldState string, newState string, userID *uuid.UUID) error {
+	payload := map[string]interface{}{
+		"asset_id":  assetID.String(),
+		"old_state": oldState,
+		"new_state": newState,
+	}
+	if userID != nil {
+		payload["user_id"] = userID.String()
+	}
+
 	event := eventbus.Event{
-		Type: "ASSET_STATE_CHANGED",
-		Payload: map[string]interface{}{
-			"asset_id":  assetID.String(),
-			"old_state": oldState,
-			"new_state": newState,
-		},
+		Type:    "ASSET_STATE_CHANGED",
+		Payload: payload,
 	}
 	return p.bus.Publish(ctx, "asset.events", "asset.state.changed", event)
 }
