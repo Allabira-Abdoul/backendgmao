@@ -1,6 +1,7 @@
 package http
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,8 +26,13 @@ func NewMaintenanceHandler(maintenanceService primary.MaintenanceService) *Maint
 
 // CreateWorkOrder handles work order creation.
 func (h *MaintenanceHandler) CreateWorkOrder(c *gin.Context) {
+	bodyBytes, _ := io.ReadAll(c.Request.Body)
+	fmt.Printf("[DEBUG] Raw Request Body: %s\n", string(bodyBytes))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+	
 	var req domain.CreateOrdreTravailRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		fmt.Printf("[DEBUG] CreateWorkOrder binding error: %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
