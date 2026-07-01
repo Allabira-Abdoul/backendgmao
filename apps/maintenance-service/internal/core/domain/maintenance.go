@@ -283,6 +283,7 @@ type CreateOrdreTravailRequest struct {
 type UpdateOrdreTravailRequest struct {
 	Title               *string    `json:"title,omitempty" binding:"omitempty,min=2,max=255"`
 	Description         *string    `json:"description,omitempty"`
+	AssetID             *string    `json:"asset_id,omitempty" binding:"omitempty,uuid"`
 	Type                *string    `json:"type,omitempty" binding:"omitempty,oneof=INTERVENTION INSPECTION"`
 	ScheduledAt         *time.Time `json:"scheduled_at,omitempty"`
 	Status              *string    `json:"status,omitempty" binding:"omitempty,oneof=PENDING IN_PROGRESS COMPLETED CANCELLED"`

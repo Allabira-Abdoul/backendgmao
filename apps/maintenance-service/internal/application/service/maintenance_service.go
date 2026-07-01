@@ -172,6 +172,12 @@ func (s *MaintenanceService) UpdateWorkOrder(ctx context.Context, id uuid.UUID, 
 	if req.IsMetricMeasurement != nil {
 		wo.IsMetricMeasurement = *req.IsMetricMeasurement
 	}
+	if req.AssetID != nil {
+		parsed, err := uuid.Parse(*req.AssetID)
+		if err == nil {
+			wo.AssetID = parsed
+		}
+	}
 	if req.AssignedTo != nil {
 		if *req.AssignedTo == "" {
 			wo.AssignedTo = nil
