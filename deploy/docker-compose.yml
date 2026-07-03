@@ -95,40 +95,18 @@ services:
     networks:
       - backend-net
 
-  authentication-service:
+  identity-service:
     build:
       context: ..
       dockerfile: Dockerfile
       args:
-        SERVICE_NAME: authentication-service
-    container_name: authentication-service
+        SERVICE_NAME: identity-service
+    container_name: identity-service
     environment:
       PORT: "8080"
       CONSUL_HOST: consul
       CONSUL_PORT: "8500"
-      SERVICE_HOST: authentication-service
-      DATABASE_URL: "host=postgres user=gmao_user password=gmao_password dbname=gmao_db port=5432 sslmode=disable"
-    depends_on:
-      consul:
-        condition: service_started
-      postgres:
-        condition: service_healthy
-    restart: on-failure
-    networks:
-      - backend-net
-
-  user-service:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-      args:
-        SERVICE_NAME: user-service
-    container_name: user-service
-    environment:
-      PORT: "8080"
-      CONSUL_HOST: consul
-      CONSUL_PORT: "8500"
-      SERVICE_HOST: user-service
+      SERVICE_HOST: identity-service
       DATABASE_URL: "host=postgres user=gmao_user password=gmao_password dbname=gmao_db port=5432 sslmode=disable"
     depends_on:
       consul:

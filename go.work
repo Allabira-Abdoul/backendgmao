@@ -1,13 +1,12 @@
 go 1.26.2
 
 use (
-	./apps/analytics-service
-	./apps/api-gateway
-	./apps/asset-service
-	./apps/audit-service
-	./apps/auth-service
-	./apps/maintenance-service
-	./apps/prediction-service
-	./apps/user-service
+	./apps/0api-gateway
+	./apps/1audit-service
+	./apps/2identity-service
+	./apps/3asset-service
+	./apps/4maintenance-service
+	./apps/5analytics-service
+	./apps/6prediction-service
 	./pkg
 )

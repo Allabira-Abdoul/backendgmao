@@ -3,10 +3,7 @@
 # Usage: .\run_all.ps1
 #
 # Port Mapping (chosen to avoid Hyper-V exclusions 7886-8085, 9227-9726):
-#   user-service        -> 8100
-#   analytics-service   -> 8101
-#   asset-service       -> 8102
-#   auth-service        -> 8103
+#   identity-service    -> 8100
 #   maintenance-service -> 8104
 #   prediction-service  -> 8105
 #   audit-service       -> 8106
@@ -41,13 +38,12 @@ function Start-ServiceProcess {
 }
 
 # 3. Start all microservices (each in its own window for log visibility)
-Start-ServiceProcess -Name "user-service"        -Path "apps\user-service\cmd\api"        -Port 8100
-Start-ServiceProcess -Name "analytics-service"   -Path "apps\analytics-service\cmd\api"   -Port 8101
-Start-ServiceProcess -Name "asset-service"       -Path "apps\asset-service\cmd\api"       -Port 8102
-Start-ServiceProcess -Name "auth-service"        -Path "apps\auth-service\cmd\api"        -Port 8103
-Start-ServiceProcess -Name "maintenance-service" -Path "apps\maintenance-service\cmd\api" -Port 8104
-Start-ServiceProcess -Name "prediction-service"  -Path "apps\prediction-service\cmd\api"  -Port 8105
-Start-ServiceProcess -Name "audit-service"       -Path "apps\audit-service\cmd\api"       -Port 8106
+Start-ServiceProcess -Name "identity-service"    -Path "apps\2identity-service\cmd\api"    -Port 8100
+Start-ServiceProcess -Name "analytics-service"   -Path "apps\5analytics-service\cmd\api"   -Port 8101
+Start-ServiceProcess -Name "asset-service"       -Path "apps\3asset-service\cmd\api"       -Port 8102
+Start-ServiceProcess -Name "maintenance-service" -Path "apps\4maintenance-service\cmd\api" -Port 8104
+Start-ServiceProcess -Name "prediction-service"  -Path "apps\6prediction-service\cmd\api"  -Port 8105
+Start-ServiceProcess -Name "audit-service"       -Path "apps\1audit-service\cmd\api"       -Port 8106
 
 # Wait before launching Gateway so services can register with Consul first
 Start-Sleep -Seconds 3
@@ -55,7 +51,7 @@ Start-Sleep -Seconds 3
 # 4. Launch the API Gateway
 Write-Host "Starting API Gateway on http://127.0.0.1:8200..." -ForegroundColor Green
 $root = (Get-Location).Path
-$gatewayArg = "/k title api-gateway&cd /d `"$root\apps\api-gateway\cmd\api`"&set PORT=8200&set CONSUL_HOST=127.0.0.1&set CONSUL_PORT=8500&set JWT_SECRET=gmao-dev-secret-change-in-production&go run ."
+$gatewayArg = "/k title api-gateway&cd /d `"$root\apps\0api-gateway\cmd\api`"&set PORT=8200&set CONSUL_HOST=127.0.0.1&set CONSUL_PORT=8500&set JWT_SECRET=gmao-dev-secret-change-in-production&go run ."
 Start-Process cmd.exe -ArgumentList $gatewayArg
 
 Write-Host ""
@@ -64,10 +60,7 @@ Write-Host "Gateway Endpoint  : http://127.0.0.1:8200" -ForegroundColor Cyan
 Write-Host "Consul Dashboard  : http://127.0.0.1:8500" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Service Port Map:" -ForegroundColor DarkCyan
-Write-Host "  user-service        -> http://127.0.0.1:8100" -ForegroundColor DarkCyan
-Write-Host "  analytics-service   -> http://127.0.0.1:8101" -ForegroundColor DarkCyan
-Write-Host "  asset-service       -> http://127.0.0.1:8102" -ForegroundColor DarkCyan
-Write-Host "  auth-service        -> http://127.0.0.1:8103" -ForegroundColor DarkCyan
+Write-Host "  identity-service    -> http://127.0.0.1:8100" -ForegroundColor DarkCyan
 Write-Host "  maintenance-service -> http://127.0.0.1:8104" -ForegroundColor DarkCyan
 Write-Host "  prediction-service  -> http://127.0.0.1:8105" -ForegroundColor DarkCyan
 Write-Host "  audit-service       -> http://127.0.0.1:8106" -ForegroundColor DarkCyan

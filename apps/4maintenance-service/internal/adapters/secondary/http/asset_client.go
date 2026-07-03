@@ -1,0 +1,176 @@
+package http
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"time"
+
+	"backend-gmao/apps/maintenance-service/internal/core/ports/secondary"
+	"backend-gmao/pkg/auth"
+	"github.com/google/uuid"
+)
+
+type assetClient struct {
+	gatewayURL string
+	jwtManager *auth.JWTManager
+	httpClient *http.Client
+}
+
+func NewAssetClient(jwtManager *auth.JWTManager) secondary.AssetClient {
+	url := os.Getenv("ASSET_SERVICE_URL")
+	if url == "" {
+		url = "http://127.0.0.1:8102"
+	}
+	return &assetClient{
+		gatewayURL: url,
+		jwtManager: jwtManager,
+		httpClient: &http.Client{Timeout: 5 * time.Second},
+	}
+}
+
+func (c *assetClient) GetAssetName(ctx context.Context, id uuid.UUID) (string, error) {
+	// Using the service endpoint directly
+	reqURL := fmt.Sprintf("%s/instances/equipment/%s", c.gatewayURL, id.String())
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return "", err
+	}
+
+	token, _ := c.jwtManager.GenerateInternalServiceToken("maintenance-service")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		errResp := fmt.Errorf("asset service returned %d", resp.StatusCode)
+		fmt.Printf("[AssetClient] Error fetching asset %s: %v\n", id, errResp)
+		return "", errResp
+	}
+
+	var instance struct {
+		Code           string `json:"code"`
+		EquipmentModel struct {
+			Name string `json:"name"`
+		} `json:"equipment_model"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&instance); err != nil {
+		return "", err
+	}
+
+	if instance.EquipmentModel.Name != "" {
+		return fmt.Sprintf("%s (%s)", instance.EquipmentModel.Name, instance.Code), nil
+	}
+	return instance.Code, nil
+}
+
+func (c *assetClient) GetAssetNames(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	result := make(map[uuid.UUID]string)
+	for _, id := range ids {
+		name, err := c.GetAssetName(ctx, id)
+		if err == nil {
+			result[id] = name
+		}
+	}
+	return result, nil
+}
+
+func (c *assetClient) UpdateAssetStatus(ctx context.Context, id uuid.UUID, status string) error {
+	reqURL := fmt.Sprintf("%s/instances/equipment/%s/status", c.gatewayURL, id.String())
+	
+	payload := map[string]string{"status": status}
+	body, _ := json.Marshal(payload)
+	
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, reqURL, bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	token, _ := c.jwtManager.GenerateInternalServiceToken("maintenance-service")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("asset service returned %d when updating status", resp.StatusCode)
+	}
+	return nil
+}
+
+func (c *assetClient) RecordUsage(ctx context.Context, id uuid.UUID, usageHours float64, maintenanceDate *time.Time, maintenanceRuleID *string) error {
+	reqURL := fmt.Sprintf("%s/actions/instances/%s/record-usage", c.gatewayURL, id.String())
+	
+	payload := map[string]interface{}{
+		"usage_hours": usageHours,
+	}
+	if maintenanceDate != nil {
+		payload["maintenance_date"] = maintenanceDate
+	}
+	if maintenanceRuleID != nil {
+		payload["maintenance_rule_id"] = maintenanceRuleID
+	}
+
+	body, _ := json.Marshal(payload)
+	
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	token, _ := c.jwtManager.GenerateInternalServiceToken("maintenance-service")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("asset service returned %d when recording usage", resp.StatusCode)
+	}
+	return nil
+}
+
+func (c *assetClient) GetEquipmentModel(ctx context.Context, id uuid.UUID) (map[string]interface{}, error) {
+	reqURL := fmt.Sprintf("%s/models/equipment/%s", c.gatewayURL, id.String())
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	token, _ := c.jwtManager.GenerateInternalServiceToken("maintenance-service")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("asset service returned %d fetching equipment model", resp.StatusCode)
+	}
+
+	var model map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&model); err != nil {
+		return nil, err
+	}
+
+	return model, nil
+}
