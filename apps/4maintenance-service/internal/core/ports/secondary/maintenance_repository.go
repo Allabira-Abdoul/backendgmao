@@ -21,7 +21,8 @@ type MaintenanceRepository interface {
 	UpdateIntervention(ctx context.Context, intervention *domain.Intervention) error
 
 	CreateInspection(ctx context.Context, inspection *domain.Inspection) error
-	FindInspectionsByWorkOrderID(ctx context.Context, workOrderID uuid.UUID) ([]domain.Inspection, error)
+	FindInspectionsByAssetID(ctx context.Context, assetID uuid.UUID) ([]domain.Inspection, error)
+	FindAllInspections(ctx context.Context) ([]domain.Inspection, error)
 	FindInspectionByID(ctx context.Context, id uuid.UUID) (*domain.Inspection, error)
 	UpdateInspection(ctx context.Context, inspection *domain.Inspection) error
 

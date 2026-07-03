@@ -12,6 +12,7 @@ type Team struct {
 	Name        string     `gorm:"column:name;uniqueIndex;not null" json:"name"`
 	ManagerID   *uuid.UUID `gorm:"column:manager_id;type:uuid" json:"manager_id"`
 	Description string     `gorm:"column:description" json:"description"`
+	Location    string     `gorm:"column:location" json:"location"`
 	CreatedAt   time.Time  `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt   time.Time  `gorm:"column:updated_at" json:"updated_at"`
 }
@@ -27,6 +28,7 @@ type TeamResponse struct {
 	Name        string     `json:"name"`
 	ManagerID   *uuid.UUID `json:"manager_id,omitempty"`
 	Description string     `json:"description"`
+	Location    string     `json:"location,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 }
@@ -38,6 +40,7 @@ func (e *Team) ToResponse() TeamResponse {
 		Name:        e.Name,
 		ManagerID:   e.ManagerID,
 		Description: e.Description,
+		Location:    e.Location,
 		CreatedAt:   e.CreatedAt,
 		UpdatedAt:   e.UpdatedAt,
 	}
@@ -62,6 +65,7 @@ type CreateTeamRequest struct {
 	Name        string  `json:"name" binding:"required,min=2,max=255"`
 	ManagerID   *string `json:"manager_id,omitempty" binding:"omitempty,uuid"`
 	Description string  `json:"description" binding:"omitempty"`
+	Location    string  `json:"location" binding:"omitempty"`
 }
 
 // UpdateTeamRequest is the DTO for updating an existing team.
@@ -69,4 +73,5 @@ type UpdateTeamRequest struct {
 	Name        *string `json:"name,omitempty" binding:"omitempty,min=2,max=255"`
 	ManagerID   *string `json:"manager_id,omitempty" binding:"omitempty,uuid"`
 	Description *string `json:"description,omitempty" binding:"omitempty"`
+	Location    *string `json:"location,omitempty" binding:"omitempty"`
 }

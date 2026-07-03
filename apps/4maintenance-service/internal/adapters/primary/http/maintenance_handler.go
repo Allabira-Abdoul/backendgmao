@@ -255,14 +255,8 @@ func (h *MaintenanceHandler) EndIntervention(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-// CreateInspection records a new inspection for a work order.
+// CreateInspection records a new inspection.
 func (h *MaintenanceHandler) CreateInspection(c *gin.Context) {
-	idStr := c.Param("id")
-	workOrderID, err := uuid.Parse(idStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
-		return
-	}
 
 	var req domain.CreateInspectionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -270,7 +264,7 @@ func (h *MaintenanceHandler) CreateInspection(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.maintenanceService.CreateInspection(c.Request.Context(), workOrderID, req)
+	resp, err := h.maintenanceService.CreateInspection(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -281,14 +275,7 @@ func (h *MaintenanceHandler) CreateInspection(c *gin.Context) {
 
 // UpdateInspection updates an inspection.
 func (h *MaintenanceHandler) UpdateInspection(c *gin.Context) {
-	woIDStr := c.Param("id")
-	woID, err := uuid.Parse(woIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid work order UUID"})
-		return
-	}
-
-	insIDStr := c.Param("ins_id")
+	insIDStr := c.Param("id")
 	insID, err := uuid.Parse(insIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid inspection UUID"})
@@ -301,7 +288,7 @@ func (h *MaintenanceHandler) UpdateInspection(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.maintenanceService.UpdateInspection(c.Request.Context(), woID, insID, req)
+	resp, err := h.maintenanceService.UpdateInspection(c.Request.Context(), insID, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -311,21 +298,14 @@ func (h *MaintenanceHandler) UpdateInspection(c *gin.Context) {
 
 // StartInspection starts an inspection.
 func (h *MaintenanceHandler) StartInspection(c *gin.Context) {
-	woIDStr := c.Param("id")
-	woID, err := uuid.Parse(woIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid work order UUID"})
-		return
-	}
-
-	insIDStr := c.Param("ins_id")
+	insIDStr := c.Param("id")
 	insID, err := uuid.Parse(insIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid inspection UUID"})
 		return
 	}
 
-	resp, err := h.maintenanceService.StartInspection(c.Request.Context(), woID, insID)
+	resp, err := h.maintenanceService.StartInspection(c.Request.Context(), insID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -335,21 +315,31 @@ func (h *MaintenanceHandler) StartInspection(c *gin.Context) {
 
 // EndInspection ends an inspection.
 func (h *MaintenanceHandler) EndInspection(c *gin.Context) {
-	woIDStr := c.Param("id")
-	woID, err := uuid.Parse(woIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid work order UUID"})
-		return
-	}
-
-	insIDStr := c.Param("ins_id")
+	insIDStr := c.Param("id")
 	insID, err := uuid.Parse(insIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid inspection UUID"})
 		return
 	}
 
-	resp, err := h.maintenanceService.EndInspection(c.Request.Context(), woID, insID)
+	resp, err := h.maintenanceService.EndInspection(c.Request.Context(), insID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+// HandleGetAssetInspections handles fetching inspections for an asset.
+func (h *MaintenanceHandler) HandleGetAssetInspections(c *gin.Context) {
+	assetIDStr := c.Param("asset_id")
+	assetID, err := uuid.Parse(assetIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid asset UUID"})
+		return
+	}
+
+	resp, err := h.maintenanceService.GetInspectionsForAsset(c.Request.Context(), assetID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

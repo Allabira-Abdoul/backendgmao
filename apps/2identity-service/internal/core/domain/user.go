@@ -27,6 +27,7 @@ type User struct {
 	Role          Role          `gorm:"foreignKey:RoleID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;" json:"role,omitempty"`
 	TeamID        *uuid.UUID    `gorm:"column:team_id;type:uuid" json:"team_id"`
 	Team          *Team         `gorm:"foreignKey:TeamID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"team,omitempty"`
+	Location      string        `gorm:"column:location" json:"location"`
 	CreatedAt     time.Time     `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt     time.Time     `gorm:"column:updated_at" json:"updated_at"`
 }
@@ -55,6 +56,7 @@ type UserResponse struct {
 	MustChangePassword bool          `json:"must_change_password"`
 	Role          *RoleResponse `json:"role,omitempty"`
 	Team          *TeamResponse `json:"team,omitempty"`
+	Location      string        `json:"location,omitempty"`
 	CreatedAt     time.Time     `json:"created_at"`
 	UpdatedAt     time.Time     `json:"updated_at"`
 }
@@ -80,6 +82,8 @@ func (u *User) ToResponse() UserResponse {
 		teamResp := u.Team.ToResponse()
 		resp.Team = &teamResp
 	}
+
+	resp.Location = u.Location
 
 	return resp
 }
@@ -131,6 +135,7 @@ type CreateUserRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=8"`
 	RoleID   string `json:"role_id" binding:"required,uuid"`
+	Location string `json:"location" binding:"omitempty"`
 }
 
 // UpdateUserRequest is the DTO for updating an existing user.
@@ -140,6 +145,7 @@ type UpdateUserRequest struct {
 	Status   *string `json:"status,omitempty" binding:"omitempty,oneof=ACTIVE INACTIVE LOCKED"`
 	RoleID   *string `json:"role_id,omitempty" binding:"omitempty,uuid"`
 	TeamID   *string `json:"team_id,omitempty"`
+	Location *string `json:"location,omitempty"`
 }
 
 // ChangePasswordRequest is the DTO for a user changing their own password.

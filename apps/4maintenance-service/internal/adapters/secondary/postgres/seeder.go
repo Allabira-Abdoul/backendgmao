@@ -56,53 +56,72 @@ func Seed(db *gorm.DB) {
 	// Generate 20 diverse work orders spanning the current month (-15 days to +15 days)
 	priorities := []string{"LOW", "MEDIUM", "HIGH", "CRITICAL"}
 	statuses := []string{"PENDING", "IN_PROGRESS", "COMPLETED"}
-	types := []string{"INTERVENTION", "INSPECTION"}
 	categories := []string{"CORRECTIVE", "PREVENTIVE"}
 	mTypes := []string{"PALLIATIVE", "CURATIVE", "SYSTEMATIC", "CONDITIONAL", "PREDICTIVE"}
 
 	for i := 1; i <= 20; i++ {
 		daysOffset := rand.Intn(30) - 15 // -15 to +15 days
 		scheduled := now.AddDate(0, 0, daysOffset)
+		endScheduled := scheduled.AddDate(0, 0, 1)
 
-		wo := domain.OrdreTravail{
-			ID:                  uuid.New(),
-			Title:               "Automated Scheduled Task #" + string(rune('A'+i)),
-			Description:         "This is an auto-generated work order for testing all possibilities.",
-			AssetID:             assetId,
-			Priority:            priorities[rand.Intn(len(priorities))],
-			Status:              statuses[rand.Intn(len(statuses))],
-			Type:                types[rand.Intn(len(types))],
-			ScheduledAt:         &scheduled,
-			MaintenanceCategory: categories[rand.Intn(len(categories))],
-			MaintenanceType:     mTypes[rand.Intn(len(mTypes))],
-			IsMetricMeasurement: rand.Intn(2) == 0,
-			AssignedTo:          assignedTo,
-			CreatedAt:           now,
-			UpdatedAt:           now,
-		}
-		
-		if wo.Status == "COMPLETED" && wo.Type == "INTERVENTION" {
-			started := scheduled.Add(time.Hour)
-			ended := started.Add(time.Hour * 2)
-			wo.Interventions = []domain.Intervention{
-				{
-					ID:                  uuid.New(),
-					WorkOrderID:         wo.ID,
-					Description:         "Completed intervention steps.",
-					MaintenanceCategory: wo.MaintenanceCategory,
-					MaintenanceType:     wo.MaintenanceType,
-					IsMetricMeasurement: wo.IsMetricMeasurement,
-					StartedAt:           &started,
-					EndedAt:             &ended,
-					PerformedBy:         userId, // Requires user to exist, else could fail if FK strict
-					CreatedAt:           now,
-					UpdatedAt:           now,
-				},
+		isInspection := rand.Intn(3) == 0
+
+		if isInspection {
+			ins := domain.Inspection{
+				ID:                 uuid.New(),
+				AssetID:            assetId,
+				Observations:       "Automated inspection #" + string(rune('A'+i)),
+				RequiresAttention:  rand.Intn(2) == 0,
+				PerformedBy:        userId,
+				Date:               &scheduled,
+				CreatedAt:          now,
+				UpdatedAt:          now,
 			}
-		}
+			if ins.RequiresAttention {
+				ins.AttentionReason = "Detected irregular vibration during test."
+			}
+			db.Create(&ins)
+		} else {
+			wo := domain.OrdreTravail{
+				ID:                  uuid.New(),
+				Title:               "Automated Scheduled Task #" + string(rune('A'+i)),
+				Description:         "This is an auto-generated work order for testing all possibilities.",
+				AssetID:             assetId,
+				Priority:            priorities[rand.Intn(len(priorities))],
+				Status:              statuses[rand.Intn(len(statuses))],
+				ScheduledStartDate:  &scheduled,
+				ScheduledEndDate:    &endScheduled,
+				MaintenanceCategory: categories[rand.Intn(len(categories))],
+				MaintenanceType:     mTypes[rand.Intn(len(mTypes))],
+				IsMetricMeasurement: rand.Intn(2) == 0,
+				AssignedTo:          assignedTo,
+				CreatedAt:           now,
+				UpdatedAt:           now,
+			}
+			
+			if wo.Status == "COMPLETED" {
+				started := scheduled.Add(time.Hour)
+				ended := started.Add(time.Hour * 2)
+				wo.Interventions = []domain.Intervention{
+					{
+						ID:                  uuid.New(),
+						WorkOrderID:         wo.ID,
+						Description:         "Completed intervention steps.",
+						MaintenanceCategory: wo.MaintenanceCategory,
+						MaintenanceType:     wo.MaintenanceType,
+						IsMetricMeasurement: wo.IsMetricMeasurement,
+						StartedAt:           &started,
+						EndedAt:             &ended,
+						PerformedBy:         userId,
+						CreatedAt:           now,
+						UpdatedAt:           now,
+					},
+				}
+			}
 
-		db.Create(&wo)
+			db.Create(&wo)
+		}
 	}
 
-	log.Println("Successfully seeded 20 diverse work orders.")
+	log.Println("Successfully seeded 20 diverse work orders and inspections.")
 }

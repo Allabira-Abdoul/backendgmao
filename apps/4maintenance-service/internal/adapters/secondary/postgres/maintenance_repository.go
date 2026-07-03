@@ -31,7 +31,7 @@ func (r *maintenanceRepository) DeleteWorkOrder(ctx context.Context, id uuid.UUI
 
 func (r *maintenanceRepository) FindWorkOrderByID(ctx context.Context, id uuid.UUID) (*domain.OrdreTravail, error) {
 	var wo domain.OrdreTravail
-	if err := r.db.WithContext(ctx).Preload("Interventions").Preload("Inspections").First(&wo, "id = ?", id).Error; err != nil {
+	if err := r.db.WithContext(ctx).Preload("Interventions").First(&wo, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
 	return &wo, nil
@@ -39,7 +39,7 @@ func (r *maintenanceRepository) FindWorkOrderByID(ctx context.Context, id uuid.U
 
 func (r *maintenanceRepository) FindAllWorkOrders(ctx context.Context) ([]domain.OrdreTravail, error) {
 	var wos []domain.OrdreTravail
-	if err := r.db.WithContext(ctx).Preload("Interventions").Preload("Inspections").Find(&wos).Error; err != nil {
+	if err := r.db.WithContext(ctx).Preload("Interventions").Find(&wos).Error; err != nil {
 		return nil, err
 	}
 	return wos, nil
@@ -73,9 +73,17 @@ func (r *maintenanceRepository) CreateInspection(ctx context.Context, inspection
 	return r.db.WithContext(ctx).Create(inspection).Error
 }
 
-func (r *maintenanceRepository) FindInspectionsByWorkOrderID(ctx context.Context, workOrderID uuid.UUID) ([]domain.Inspection, error) {
+func (r *maintenanceRepository) FindInspectionsByAssetID(ctx context.Context, assetID uuid.UUID) ([]domain.Inspection, error) {
 	var inspections []domain.Inspection
-	if err := r.db.WithContext(ctx).Preload("Measurements").Where("work_order_id = ?", workOrderID).Find(&inspections).Error; err != nil {
+	if err := r.db.WithContext(ctx).Preload("Measurements").Where("asset_id = ?", assetID).Find(&inspections).Error; err != nil {
+		return nil, err
+	}
+	return inspections, nil
+}
+
+func (r *maintenanceRepository) FindAllInspections(ctx context.Context) ([]domain.Inspection, error) {
+	var inspections []domain.Inspection
+	if err := r.db.WithContext(ctx).Preload("Measurements").Find(&inspections).Error; err != nil {
 		return nil, err
 	}
 	return inspections, nil

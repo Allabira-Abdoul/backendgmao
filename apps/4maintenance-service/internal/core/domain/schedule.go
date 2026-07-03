@@ -15,6 +15,8 @@ type MaintenanceSchedule struct {
 	Frequency             string     `gorm:"column:frequency;not null" json:"frequency"` // ONCE, DAILY, WEEKLY, MONTHLY, YEARLY, USAGE_BASED
 	IntervalMonths        *int       `gorm:"column:interval_months" json:"interval_months"`
 	IntervalHours         *float64   `gorm:"column:interval_hours" json:"interval_hours"`
+	StartDate             *time.Time `gorm:"column:start_date" json:"start_date"`
+	EndDate               *time.Time `gorm:"column:end_date" json:"end_date"`
 	NextScheduledDate     *time.Time `gorm:"column:next_scheduled_date" json:"next_scheduled_date"`
 	NextScheduledUsage    *float64   `gorm:"column:next_scheduled_usage" json:"next_scheduled_usage"`
 	MaintenanceCategory   string     `gorm:"column:maintenance_category;not null" json:"maintenance_category"` // PREVENTIVE
@@ -36,6 +38,8 @@ type MaintenanceScheduleResponse struct {
 	Frequency             string     `json:"frequency"`
 	IntervalMonths        *int       `json:"interval_months,omitempty"`
 	IntervalHours         *float64   `json:"interval_hours,omitempty"`
+	StartDate             *time.Time `json:"start_date,omitempty"`
+	EndDate               *time.Time `json:"end_date,omitempty"`
 	NextScheduledDate     *time.Time `json:"next_scheduled_date,omitempty"`
 	NextScheduledUsage    *float64   `json:"next_scheduled_usage,omitempty"`
 	MaintenanceCategory   string     `json:"maintenance_category"`
@@ -56,6 +60,8 @@ func (m *MaintenanceSchedule) ToResponse() MaintenanceScheduleResponse {
 		Frequency:             m.Frequency,
 		IntervalMonths:        m.IntervalMonths,
 		IntervalHours:         m.IntervalHours,
+		StartDate:             m.StartDate,
+		EndDate:               m.EndDate,
 		NextScheduledDate:     m.NextScheduledDate,
 		NextScheduledUsage:    m.NextScheduledUsage,
 		MaintenanceCategory:   m.MaintenanceCategory,
@@ -75,6 +81,8 @@ type CreateMaintenanceScheduleRequest struct {
 	Frequency             string     `json:"frequency" binding:"required,oneof=ONCE DAILY WEEKLY MONTHLY YEARLY USAGE_BASED"`
 	IntervalMonths        *int       `json:"interval_months"`
 	IntervalHours         *float64   `json:"interval_hours"`
+	StartDate             *time.Time `json:"start_date"`
+	EndDate               *time.Time `json:"end_date"`
 	NextScheduledDate     *time.Time `json:"next_scheduled_date"`
 	NextScheduledUsage    *float64   `json:"next_scheduled_usage"`
 	MaintenanceCategory   string     `json:"maintenance_category" binding:"required"`
@@ -90,6 +98,8 @@ type UpdateMaintenanceScheduleRequest struct {
 	Frequency             *string    `json:"frequency" binding:"omitempty,oneof=ONCE DAILY WEEKLY MONTHLY YEARLY USAGE_BASED"`
 	IntervalMonths        *int       `json:"interval_months"`
 	IntervalHours         *float64   `json:"interval_hours"`
+	StartDate             *time.Time `json:"start_date"`
+	EndDate               *time.Time `json:"end_date"`
 	NextScheduledDate     *time.Time `json:"next_scheduled_date"`
 	NextScheduledUsage    *float64   `json:"next_scheduled_usage"`
 	MaintenanceCategory   *string    `json:"maintenance_category"`

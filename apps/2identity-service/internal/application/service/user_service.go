@@ -65,12 +65,13 @@ func (s *UserService) CreateUser(ctx context.Context, req domain.CreateUserReque
 	}
 
 	user := &domain.User{
-		FullName: req.FullName,
-		Email:    req.Email,
-		Password: hashedPassword,
-		Status:   domain.StatusActive,
+		FullName:           req.FullName,
+		Email:              req.Email,
+		Password:           hashedPassword,
+		Status:             domain.StatusActive,
 		MustChangePassword: true,
-		RoleID:   roleID,
+		RoleID:             roleID,
+		Location:           req.Location,
 	}
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
@@ -209,6 +210,11 @@ func (s *UserService) UpdateUser(ctx context.Context, id uuid.UUID, req domain.U
 			changes["team_id"] = map[string]interface{}{"old": user.TeamID, "new": teamID.String()}
 			user.TeamID = &teamID
 		}
+	}
+
+	if req.Location != nil {
+		changes["location"] = map[string]interface{}{"old": user.Location, "new": *req.Location}
+		user.Location = *req.Location
 	}
 
 	if err := s.userRepo.Update(ctx, user); err != nil {

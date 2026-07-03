@@ -51,6 +51,7 @@ func (s *TeamService) CreateTeam(ctx context.Context, req domain.CreateTeamReque
 		Name:        req.Name,
 		ManagerID:   managerID,
 		Description: req.Description,
+		Location:    req.Location,
 	}
 
 	if err := s.teamRepo.Create(ctx, team); err != nil {
@@ -126,6 +127,10 @@ func (s *TeamService) UpdateTeam(ctx context.Context, id uuid.UUID, req domain.U
 
 	if req.Description != nil {
 		team.Description = *req.Description
+	}
+
+	if req.Location != nil {
+		team.Location = *req.Location
 	}
 
 	if req.ManagerID != nil {

@@ -22,10 +22,11 @@ type MaintenanceService interface {
 	EndIntervention(ctx context.Context, workOrderID uuid.UUID, interventionID uuid.UUID) (*domain.InterventionResponse, error)
 	GetInterventionsForWorkOrder(ctx context.Context, workOrderID uuid.UUID) ([]domain.InterventionResponse, error)
 
-	CreateInspection(ctx context.Context, workOrderID uuid.UUID, req domain.CreateInspectionRequest) (*domain.InspectionResponse, error)
-	UpdateInspection(ctx context.Context, workOrderID uuid.UUID, inspectionID uuid.UUID, req domain.UpdateInspectionRequest) (*domain.InspectionResponse, error)
-	StartInspection(ctx context.Context, workOrderID uuid.UUID, inspectionID uuid.UUID) (*domain.InspectionResponse, error)
-	EndInspection(ctx context.Context, workOrderID uuid.UUID, inspectionID uuid.UUID) (*domain.InspectionResponse, error)
+	CreateInspection(ctx context.Context, req domain.CreateInspectionRequest) (*domain.InspectionResponse, error)
+	UpdateInspection(ctx context.Context, inspectionID uuid.UUID, req domain.UpdateInspectionRequest) (*domain.InspectionResponse, error)
+	StartInspection(ctx context.Context, inspectionID uuid.UUID) (*domain.InspectionResponse, error)
+	EndInspection(ctx context.Context, inspectionID uuid.UUID) (*domain.InspectionResponse, error)
+	GetInspectionsForAsset(ctx context.Context, assetID uuid.UUID) ([]domain.InspectionResponse, error)
 
 	CreateMaintenanceSchedule(ctx context.Context, req domain.CreateMaintenanceScheduleRequest) (*domain.MaintenanceScheduleResponse, error)
 	UpdateMaintenanceSchedule(ctx context.Context, id uuid.UUID, req domain.UpdateMaintenanceScheduleRequest) (*domain.MaintenanceScheduleResponse, error)

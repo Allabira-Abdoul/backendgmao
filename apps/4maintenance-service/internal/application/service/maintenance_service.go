@@ -109,9 +109,13 @@ func (s *MaintenanceService) CreateWorkOrder(ctx context.Context, req domain.Cre
 		assignedTo = &parsed
 	}
 
-	woType := "INTERVENTION"
-	if req.Type != "" {
-		woType = req.Type
+	var scheduleID *uuid.UUID
+	if req.ScheduleID != nil && *req.ScheduleID != "" {
+		parsed, err := uuid.Parse(*req.ScheduleID)
+		if err != nil {
+			return nil, errors.New("invalid schedule ID format")
+		}
+		scheduleID = &parsed
 	}
 
 	wo := &domain.OrdreTravail{
@@ -119,8 +123,9 @@ func (s *MaintenanceService) CreateWorkOrder(ctx context.Context, req domain.Cre
 		Title:               req.Title,
 		Description:         req.Description,
 		AssetID:             assetID,
-		Type:                woType,
-		ScheduledAt:         req.ScheduledAt,
+		ScheduleID:          scheduleID,
+		ScheduledStartDate:  req.ScheduledStartDate,
+		ScheduledEndDate:    req.ScheduledEndDate,
 		Priority:            req.Priority,
 		Status:              "PENDING",
 		MaintenanceCategory: req.MaintenanceCategory,
@@ -151,11 +156,21 @@ func (s *MaintenanceService) UpdateWorkOrder(ctx context.Context, id uuid.UUID, 
 	if req.Description != nil {
 		wo.Description = *req.Description
 	}
-	if req.Type != nil {
-		wo.Type = *req.Type
+	if req.ScheduleID != nil {
+		if *req.ScheduleID == "" {
+			wo.ScheduleID = nil
+		} else {
+			parsed, err := uuid.Parse(*req.ScheduleID)
+			if err == nil {
+				wo.ScheduleID = &parsed
+			}
+		}
 	}
-	if req.ScheduledAt != nil {
-		wo.ScheduledAt = req.ScheduledAt
+	if req.ScheduledStartDate != nil {
+		wo.ScheduledStartDate = req.ScheduledStartDate
+	}
+	if req.ScheduledEndDate != nil {
+		wo.ScheduledEndDate = req.ScheduledEndDate
 	}
 	if req.Status != nil {
 		wo.Status = *req.Status
@@ -297,7 +312,6 @@ func (s *MaintenanceService) ReviewDefectAlert(ctx context.Context, id uuid.UUID
 			Title:               woTitle,
 			Description:         woDesc,
 			AssetID:             alert.AssetID.String(),
-			Type:                "INTERVENTION",
 			Priority:            "HIGH",
 			MaintenanceCategory: "CORRECTIVE",
 			MaintenanceType:     "CURATIVE",
@@ -329,9 +343,6 @@ func (s *MaintenanceService) GetWorkOrder(ctx context.Context, id uuid.UUID) (*d
 	interventions, _ := s.maintenanceRepo.FindInterventionsByWorkOrderID(ctx, id)
 	wo.Interventions = interventions
 
-	inspections, _ := s.maintenanceRepo.FindInspectionsByWorkOrderID(ctx, id)
-	wo.Inspections = inspections
-
 	resp := s.buildOrdreTravailResponse(ctx, wo)
 	return &resp, nil
 }
@@ -346,8 +357,6 @@ func (s *MaintenanceService) GetAllWorkOrders(ctx context.Context) ([]domain.Ord
 	for i, wo := range workorders {
 		interventions, _ := s.maintenanceRepo.FindInterventionsByWorkOrderID(ctx, wo.ID)
 		wo.Interventions = interventions
-		inspections, _ := s.maintenanceRepo.FindInspectionsByWorkOrderID(ctx, wo.ID)
-		wo.Inspections = inspections
 		responses[i] = s.buildOrdreTravailResponse(ctx, &wo)
 	}
 	return responses, nil
@@ -369,15 +378,12 @@ func (s *MaintenanceService) StartWorkOrder(ctx context.Context, id uuid.UUID) (
 		s.fireAudit(ctx, "START_WORK_ORDER", fmt.Sprintf("Started work order %s", wo.ID))
 		
 		if s.eventPublisher != nil {
-			_ = s.eventPublisher.PublishWorkOrderStarted(ctx, wo.ID, wo.AssetID, wo.Type)
+			_ = s.eventPublisher.PublishWorkOrderStarted(ctx, wo.ID, wo.AssetID, "INTERVENTION")
 		}
 	}
 
 	interventions, _ := s.maintenanceRepo.FindInterventionsByWorkOrderID(ctx, id)
 	wo.Interventions = interventions
-
-	inspections, _ := s.maintenanceRepo.FindInspectionsByWorkOrderID(ctx, id)
-	wo.Inspections = inspections
 
 	resp := s.buildOrdreTravailResponse(ctx, wo)
 	return &resp, nil
@@ -558,7 +564,7 @@ func (s *MaintenanceService) EndIntervention(ctx context.Context, workOrderID uu
 		}
 		
 		if s.eventPublisher != nil {
-			_ = s.eventPublisher.PublishWorkOrderCompleted(ctx, wo.ID, wo.AssetID, wo.Type, inv.MaintenanceType)
+			_ = s.eventPublisher.PublishWorkOrderCompleted(ctx, wo.ID, wo.AssetID, "INTERVENTION", inv.MaintenanceType)
 		}
 
 		if inv.StartedAt != nil {
@@ -579,10 +585,18 @@ func (s *MaintenanceService) EndIntervention(ctx context.Context, workOrderID uu
 	return &resp, nil
 }
 
-func (s *MaintenanceService) CreateInspection(ctx context.Context, workOrderID uuid.UUID, req domain.CreateInspectionRequest) (*domain.InspectionResponse, error) {
-	wo, err := s.maintenanceRepo.FindWorkOrderByID(ctx, workOrderID)
+func (s *MaintenanceService) CreateInspection(ctx context.Context, req domain.CreateInspectionRequest) (*domain.InspectionResponse, error) {
+	assetID, err := uuid.Parse(req.AssetID)
 	if err != nil {
-		return nil, ErrWorkOrderNotFound
+		return nil, errors.New("invalid asset ID format")
+	}
+
+	var scheduleID *uuid.UUID
+	if req.ScheduleID != nil && *req.ScheduleID != "" {
+		parsed, err := uuid.Parse(*req.ScheduleID)
+		if err == nil {
+			scheduleID = &parsed
+		}
 	}
 
 	performedBy, err := uuid.Parse(req.PerformedBy)
@@ -592,7 +606,9 @@ func (s *MaintenanceService) CreateInspection(ctx context.Context, workOrderID u
 
 	inspection := &domain.Inspection{
 		ID:                 uuid.New(),
-		WorkOrderID:        workOrderID,
+		AssetID:            assetID,
+		ScheduleID:         scheduleID,
+		Date:               req.Date,
 		Observations:       req.Observations,
 		UsageHoursRecorded: req.UsageHoursRecorded,
 		RequiresAttention:  req.RequiresAttention,
@@ -630,22 +646,25 @@ func (s *MaintenanceService) CreateInspection(ctx context.Context, workOrderID u
 	if req.UsageHoursRecorded != nil && s.assetClient != nil {
 		go func() {
 			bgCtx := context.Background()
-			_ = s.assetClient.RecordUsage(bgCtx, wo.AssetID, *req.UsageHoursRecorded, nil, nil)
+			_ = s.assetClient.RecordUsage(bgCtx, assetID, *req.UsageHoursRecorded, nil, nil)
 		}()
 	}
 
-	s.fireAudit(ctx, "RECORD_INSPECTION", fmt.Sprintf("Recorded inspection %s for work order %s", inspection.ID, inspection.WorkOrderID))
+	s.fireAudit(ctx, "RECORD_INSPECTION", fmt.Sprintf("Recorded inspection %s for asset %s", inspection.ID, inspection.AssetID))
 
 	resp := s.buildInspectionResponse(ctx, inspection)
 	return &resp, nil
 }
 
-func (s *MaintenanceService) UpdateInspection(ctx context.Context, workOrderID uuid.UUID, inspectionID uuid.UUID, req domain.UpdateInspectionRequest) (*domain.InspectionResponse, error) {
+func (s *MaintenanceService) UpdateInspection(ctx context.Context, inspectionID uuid.UUID, req domain.UpdateInspectionRequest) (*domain.InspectionResponse, error) {
 	ins, err := s.maintenanceRepo.FindInspectionByID(ctx, inspectionID)
-	if err != nil || ins.WorkOrderID != workOrderID {
+	if err != nil {
 		return nil, errors.New("inspection not found")
 	}
 
+	if req.Date != nil {
+		ins.Date = req.Date
+	}
 	if req.Observations != nil {
 		ins.Observations = *req.Observations
 	}
@@ -687,12 +706,10 @@ func (s *MaintenanceService) UpdateInspection(ctx context.Context, workOrderID u
 	}
 
 	if req.UsageHoursRecorded != nil && s.assetClient != nil {
-		if wo, err := s.maintenanceRepo.FindWorkOrderByID(ctx, workOrderID); err == nil && wo != nil {
-			go func() {
-				bgCtx := context.Background()
-				_ = s.assetClient.RecordUsage(bgCtx, wo.AssetID, *req.UsageHoursRecorded, nil, nil)
-			}()
-		}
+		go func() {
+			bgCtx := context.Background()
+			_ = s.assetClient.RecordUsage(bgCtx, ins.AssetID, *req.UsageHoursRecorded, nil, nil)
+		}()
 	}
 
 	s.fireAudit(ctx, "UPDATE_INSPECTION", fmt.Sprintf("Updated inspection %s", inspectionID))
@@ -700,9 +717,9 @@ func (s *MaintenanceService) UpdateInspection(ctx context.Context, workOrderID u
 	return &resp, nil
 }
 
-func (s *MaintenanceService) StartInspection(ctx context.Context, workOrderID uuid.UUID, inspectionID uuid.UUID) (*domain.InspectionResponse, error) {
+func (s *MaintenanceService) StartInspection(ctx context.Context, inspectionID uuid.UUID) (*domain.InspectionResponse, error) {
 	ins, err := s.maintenanceRepo.FindInspectionByID(ctx, inspectionID)
-	if err != nil || ins.WorkOrderID != workOrderID {
+	if err != nil {
 		return nil, errors.New("inspection not found")
 	}
 
@@ -712,21 +729,14 @@ func (s *MaintenanceService) StartInspection(ctx context.Context, workOrderID uu
 		return nil, err
 	}
 
-	wo, _ := s.maintenanceRepo.FindWorkOrderByID(ctx, workOrderID)
-	if wo != nil && wo.Status == "PENDING" {
-		wo.Status = "IN_PROGRESS"
-		wo.UpdatedAt = now
-		_ = s.maintenanceRepo.UpdateWorkOrder(ctx, wo)
-	}
-
 	s.fireAudit(ctx, "START_INSPECTION", fmt.Sprintf("Started inspection %s", inspectionID))
 	resp := s.buildInspectionResponse(ctx, ins)
 	return &resp, nil
 }
 
-func (s *MaintenanceService) EndInspection(ctx context.Context, workOrderID uuid.UUID, inspectionID uuid.UUID) (*domain.InspectionResponse, error) {
+func (s *MaintenanceService) EndInspection(ctx context.Context, inspectionID uuid.UUID) (*domain.InspectionResponse, error) {
 	ins, err := s.maintenanceRepo.FindInspectionByID(ctx, inspectionID)
-	if err != nil || ins.WorkOrderID != workOrderID {
+	if err != nil {
 		return nil, errors.New("inspection not found")
 	}
 
@@ -736,20 +746,21 @@ func (s *MaintenanceService) EndInspection(ctx context.Context, workOrderID uuid
 		return nil, err
 	}
 
-	wo, _ := s.maintenanceRepo.FindWorkOrderByID(ctx, workOrderID)
-	if wo != nil {
-		wo.Status = "COMPLETED"
-		wo.UpdatedAt = now
-		_ = s.maintenanceRepo.UpdateWorkOrder(ctx, wo)
-		
-		if s.eventPublisher != nil {
-			_ = s.eventPublisher.PublishWorkOrderCompleted(ctx, wo.ID, wo.AssetID, wo.Type, "")
-		}
-	}
-
 	s.fireAudit(ctx, "END_INSPECTION", fmt.Sprintf("Ended inspection %s", inspectionID))
 	resp := s.buildInspectionResponse(ctx, ins)
 	return &resp, nil
+}
+
+func (s *MaintenanceService) GetInspectionsForAsset(ctx context.Context, assetID uuid.UUID) ([]domain.InspectionResponse, error) {
+	inspections, err := s.maintenanceRepo.FindInspectionsByAssetID(ctx, assetID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch inspections: %w", err)
+	}
+	var res []domain.InspectionResponse
+	for _, ins := range inspections {
+		res = append(res, s.buildInspectionResponse(ctx, &ins))
+	}
+	return res, nil
 }
 
 func (s *MaintenanceService) GetInterventionsForWorkOrder(ctx context.Context, workOrderID uuid.UUID) ([]domain.InterventionResponse, error) {
@@ -794,20 +805,6 @@ func (s *MaintenanceService) buildOrdreTravailResponse(ctx context.Context, wo *
 	}
 
 	compNames := make(map[uuid.UUID]string)
-	
-	for _, ins := range wo.Inspections {
-		if _, ok := perfNames[ins.PerformedBy]; !ok {
-			if ins.PerformedBy != uuid.Nil {
-				if name, err := s.userClient.GetUserName(ctx, ins.PerformedBy); err == nil {
-					perfNames[ins.PerformedBy] = name
-				} else {
-					perfNames[ins.PerformedBy] = "Unknown User"
-				}
-			} else {
-				perfNames[ins.PerformedBy] = "Unknown User"
-			}
-		}
-	}
 
 	return wo.ToResponse(assetName, assignedToName, perfNames, compNames)
 }
@@ -830,9 +827,9 @@ func (s *MaintenanceService) buildInterventionResponse(ctx context.Context, inv 
 }
 
 func (s *MaintenanceService) buildInspectionResponse(ctx context.Context, ins *domain.Inspection) domain.InspectionResponse {
-	woTitle := "Unknown Work Order"
-	if wo, err := s.maintenanceRepo.FindWorkOrderByID(ctx, ins.WorkOrderID); err == nil {
-		woTitle = wo.Title
+	assetName := "Unknown Asset"
+	if name, err := s.assetClient.GetAssetName(ctx, ins.AssetID); err == nil {
+		assetName = name
 	}
 
 	perfName := "Unknown User"
@@ -843,7 +840,7 @@ func (s *MaintenanceService) buildInspectionResponse(ctx context.Context, ins *d
 	}
 
 	compNames := make(map[uuid.UUID]string)
-	return ins.ToResponse(woTitle, perfName, compNames)
+	return ins.ToResponse(assetName, perfName, compNames)
 }
 
 func (s *MaintenanceService) HandleAssetCreated(ctx context.Context, assetID uuid.UUID, modelID uuid.UUID) error {

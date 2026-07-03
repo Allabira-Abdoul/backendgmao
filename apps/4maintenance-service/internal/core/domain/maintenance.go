@@ -12,17 +12,17 @@ type OrdreTravail struct {
 	ID           uuid.UUID      `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	Title        string         `gorm:"column:title;not null" json:"title"`
 	Description  string         `gorm:"column:description" json:"description"`
-	AssetID      uuid.UUID      `gorm:"column:asset_id;type:uuid;not null" json:"asset_id"`
+	AssetID             uuid.UUID      `gorm:"column:asset_id;type:uuid;not null" json:"asset_id"`
+	ScheduleID          *uuid.UUID     `gorm:"column:schedule_id;type:uuid" json:"schedule_id"`
 	Priority            string         `gorm:"column:priority;not null;default:'MEDIUM'" json:"priority"` // LOW, MEDIUM, HIGH, CRITICAL
 	Status              string         `gorm:"column:status;not null;default:'PENDING'" json:"status"`    // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
-	Type                string         `gorm:"column:type;not null;default:'INTERVENTION'" json:"type"` // INTERVENTION, INSPECTION
-	ScheduledAt         *time.Time     `gorm:"column:scheduled_at" json:"scheduled_at"`
+	ScheduledStartDate  *time.Time     `gorm:"column:scheduled_start_date" json:"scheduled_start_date"`
+	ScheduledEndDate    *time.Time     `gorm:"column:scheduled_end_date" json:"scheduled_end_date"`
 	MaintenanceCategory string         `gorm:"column:maintenance_category" json:"maintenance_category"`   // CORRECTIVE, PREVENTIVE
 	MaintenanceType     string         `gorm:"column:maintenance_type" json:"maintenance_type"`           // PALLIATIVE, CURATIVE, SYSTEMATIC, CONDITIONAL, PREDICTIVE
 	IsMetricMeasurement bool           `gorm:"column:is_metric_measurement;not null;default:false" json:"is_metric_measurement"`
 	AssignedTo          *uuid.UUID     `gorm:"column:assigned_to;type:uuid" json:"assigned_to"`
 	Interventions       []Intervention `gorm:"foreignKey:WorkOrderID" json:"interventions,omitempty"`
-	Inspections         []Inspection   `gorm:"foreignKey:WorkOrderID" json:"inspections,omitempty"`
 	CreatedAt           time.Time      `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt           time.Time      `gorm:"column:updated_at" json:"updated_at"`
 }
@@ -55,13 +55,15 @@ func (Intervention) TableName() string {
 
 // Inspection represents an observation/measurement action taken on a Work Order.
 type Inspection struct {
-	ID           uuid.UUID           `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	WorkOrderID  uuid.UUID           `gorm:"column:work_order_id;type:uuid;not null" json:"work_order_id"`
-	Observations string              `gorm:"column:observations;not null" json:"observations"`
+	ID                 uuid.UUID           `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	AssetID            uuid.UUID           `gorm:"column:asset_id;type:uuid;not null" json:"asset_id"`
+	ScheduleID         *uuid.UUID          `gorm:"column:schedule_id;type:uuid" json:"schedule_id"`
+	Observations       string              `gorm:"column:observations;not null" json:"observations"`
 	UsageHoursRecorded *float64    `gorm:"column:usage_hours_recorded" json:"usage_hours_recorded"`
 	RequiresAttention bool           `gorm:"column:requires_attention;not null;default:false" json:"requires_attention"`
-	AttentionReason string           `gorm:"column:attention_reason" json:"attention_reason"`
-	StartedAt    *time.Time          `gorm:"column:started_at" json:"started_at"`
+	AttentionReason    string              `gorm:"column:attention_reason" json:"attention_reason"`
+	Date               *time.Time          `gorm:"column:date" json:"date"`
+	StartedAt          *time.Time          `gorm:"column:started_at" json:"started_at"`
 	EndedAt      *time.Time          `gorm:"column:ended_at" json:"ended_at"`
 	PerformedBy  uuid.UUID           `gorm:"column:performed_by;type:uuid;not null" json:"performed_by"`
 	Measurements []MetricMeasurement `gorm:"foreignKey:InspectionID" json:"measurements,omitempty"`
@@ -128,8 +130,9 @@ type OrdreTravailResponse struct {
 	Title               string                 `json:"title"`
 	Description         string                 `json:"description"`
 	Asset               common.ResourceRef     `json:"asset"`
-	Type                string                 `json:"type"`
-	ScheduledAt         *time.Time             `json:"scheduled_at,omitempty"`
+	ScheduleID          *uuid.UUID             `json:"schedule_id,omitempty"`
+	ScheduledStartDate  *time.Time             `json:"scheduled_start_date,omitempty"`
+	ScheduledEndDate    *time.Time             `json:"scheduled_end_date,omitempty"`
 	Priority            string                 `json:"priority"`
 	Status              string                 `json:"status"`
 	MaintenanceCategory string                 `json:"maintenance_category"`
@@ -137,7 +140,6 @@ type OrdreTravailResponse struct {
 	IsMetricMeasurement bool                   `json:"is_metric_measurement"`
 	AssignedTo          *common.ResourceRef    `json:"assigned_to,omitempty"`
 	Interventions       []InterventionResponse `json:"interventions,omitempty"`
-	Inspections         []InspectionResponse   `json:"inspections,omitempty"`
 	CreatedAt           time.Time              `json:"created_at"`
 	UpdatedAt           time.Time              `json:"updated_at"`
 }
@@ -160,13 +162,15 @@ type InterventionResponse struct {
 
 // InspectionResponse represents the API DTO for Inspection.
 type InspectionResponse struct {
-	ID           uuid.UUID                   `json:"id"`
-	WorkOrder    common.ResourceRef          `json:"work_order"`
-	Observations string                      `json:"observations"`
+	ID                 uuid.UUID                   `json:"id"`
+	Asset              common.ResourceRef          `json:"asset"`
+	ScheduleID         *uuid.UUID                  `json:"schedule_id,omitempty"`
+	Observations       string                      `json:"observations"`
 	UsageHoursRecorded *float64              `json:"usage_hours_recorded,omitempty"`
 	RequiresAttention bool                     `json:"requires_attention"`
-	AttentionReason string                     `json:"attention_reason,omitempty"`
-	StartedAt    *time.Time                  `json:"started_at,omitempty"`
+	AttentionReason    string                      `json:"attention_reason,omitempty"`
+	Date               *time.Time                  `json:"date,omitempty"`
+	StartedAt          *time.Time                  `json:"started_at,omitempty"`
 	EndedAt      *time.Time                  `json:"ended_at,omitempty"`
 	PerformedBy  common.ResourceRef          `json:"performed_by"`
 	Measurements []MetricMeasurementResponse `json:"measurements,omitempty"`
@@ -202,7 +206,7 @@ func (i *Intervention) ToResponse(workOrderName string, performedByName string, 
 }
 
 // ToResponse converts an Inspection to InspectionResponse.
-func (i *Inspection) ToResponse(workOrderName string, performedByName string, compNames map[uuid.UUID]string) InspectionResponse {
+func (i *Inspection) ToResponse(assetName string, performedByName string, compNames map[uuid.UUID]string) InspectionResponse {
 	measResp := make([]MetricMeasurementResponse, len(i.Measurements))
 	for idx, m := range i.Measurements {
 		var compName string
@@ -214,11 +218,13 @@ func (i *Inspection) ToResponse(workOrderName string, performedByName string, co
 
 	return InspectionResponse{
 		ID:           i.ID,
-		WorkOrder:    common.ResourceRef{ID: i.WorkOrderID, Name: workOrderName},
+		Asset:        common.ResourceRef{ID: i.AssetID, Name: assetName},
+		ScheduleID:   i.ScheduleID,
 		Observations: i.Observations,
 		UsageHoursRecorded: i.UsageHoursRecorded,
 		RequiresAttention: i.RequiresAttention,
 		AttentionReason: i.AttentionReason,
+		Date:         i.Date,
 		StartedAt:    i.StartedAt,
 		EndedAt:      i.EndedAt,
 		PerformedBy:  common.ResourceRef{ID: i.PerformedBy, Name: performedByName},
@@ -240,18 +246,14 @@ func (o *OrdreTravail) ToResponse(assetName string, assignedToName string, perfN
 		invResp[i] = inv.ToResponse(o.Title, perfNames[inv.PerformedBy], compNames)
 	}
 
-	insResp := make([]InspectionResponse, len(o.Inspections))
-	for i, ins := range o.Inspections {
-		insResp[i] = ins.ToResponse(o.Title, perfNames[ins.PerformedBy], compNames)
-	}
-
 	return OrdreTravailResponse{
 		ID:                  o.ID,
 		Title:               o.Title,
 		Description:         o.Description,
 		Asset:               common.ResourceRef{ID: o.AssetID, Name: assetName},
-		Type:                o.Type,
-		ScheduledAt:         o.ScheduledAt,
+		ScheduleID:          o.ScheduleID,
+		ScheduledStartDate:  o.ScheduledStartDate,
+		ScheduledEndDate:    o.ScheduledEndDate,
 		Priority:            o.Priority,
 		Status:              o.Status,
 		MaintenanceCategory: o.MaintenanceCategory,
@@ -259,7 +261,6 @@ func (o *OrdreTravail) ToResponse(assetName string, assignedToName string, perfN
 		IsMetricMeasurement: o.IsMetricMeasurement,
 		AssignedTo:          assignRef,
 		Interventions:       invResp,
-		Inspections:         insResp,
 		CreatedAt:           o.CreatedAt,
 		UpdatedAt:           o.UpdatedAt,
 	}
@@ -270,8 +271,9 @@ type CreateOrdreTravailRequest struct {
 	Title       string     `json:"title" binding:"required,min=2,max=255"`
 	Description string     `json:"description"`
 	AssetID             string     `json:"asset_id" binding:"required,uuid"`
-	Type                string     `json:"type" binding:"omitempty,oneof=INTERVENTION INSPECTION"`
-	ScheduledAt         *time.Time `json:"scheduled_at,omitempty"`
+	ScheduleID          *string    `json:"schedule_id,omitempty" binding:"omitempty,uuid"`
+	ScheduledStartDate  *time.Time `json:"scheduled_start_date,omitempty"`
+	ScheduledEndDate    *time.Time `json:"scheduled_end_date,omitempty"`
 	Priority            string     `json:"priority" binding:"required"`
 	MaintenanceCategory string     `json:"maintenance_category,omitempty"`
 	MaintenanceType     string     `json:"maintenance_type,omitempty"`
@@ -284,8 +286,9 @@ type UpdateOrdreTravailRequest struct {
 	Title               *string    `json:"title,omitempty" binding:"omitempty,min=2,max=255"`
 	Description         *string    `json:"description,omitempty"`
 	AssetID             *string    `json:"asset_id,omitempty" binding:"omitempty,uuid"`
-	Type                *string    `json:"type,omitempty" binding:"omitempty,oneof=INTERVENTION INSPECTION"`
-	ScheduledAt         *time.Time `json:"scheduled_at,omitempty"`
+	ScheduleID          *string    `json:"schedule_id,omitempty" binding:"omitempty,uuid"`
+	ScheduledStartDate  *time.Time `json:"scheduled_start_date,omitempty"`
+	ScheduledEndDate    *time.Time `json:"scheduled_end_date,omitempty"`
 	Status              *string    `json:"status,omitempty" binding:"omitempty,oneof=PENDING IN_PROGRESS COMPLETED CANCELLED"`
 	Priority            *string    `json:"priority,omitempty" binding:"omitempty,oneof=LOW MEDIUM HIGH CRITICAL"`
 	MaintenanceCategory *string    `json:"maintenance_category,omitempty"`
@@ -314,6 +317,9 @@ type CreateInterventionRequest struct {
 
 // CreateInspectionRequest is the DTO to record a new inspection.
 type CreateInspectionRequest struct {
+	AssetID            string                           `json:"asset_id" binding:"required,uuid"`
+	ScheduleID         *string                          `json:"schedule_id,omitempty" binding:"omitempty,uuid"`
+	Date               *time.Time                       `json:"date,omitempty"`
 	Observations       string                           `json:"observations" binding:"required,min=2"`
 	UsageHoursRecorded *float64                         `json:"usage_hours_recorded,omitempty"`
 	RequiresAttention  bool                             `json:"requires_attention,omitempty"`
@@ -333,6 +339,7 @@ type UpdateInterventionRequest struct {
 
 // UpdateInspectionRequest is the DTO to update an inspection.
 type UpdateInspectionRequest struct {
+	Date               *time.Time                       `json:"date,omitempty"`
 	Observations       *string                          `json:"observations,omitempty" binding:"omitempty,min=2"`
 	UsageHoursRecorded *float64                         `json:"usage_hours_recorded,omitempty"`
 	RequiresAttention  *bool                            `json:"requires_attention,omitempty"`
