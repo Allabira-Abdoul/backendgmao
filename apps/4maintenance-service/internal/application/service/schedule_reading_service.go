@@ -24,12 +24,18 @@ func (s *MaintenanceService) CreateMaintenanceSchedule(ctx context.Context, req 
 		Frequency:             req.Frequency,
 		IntervalMonths:        req.IntervalMonths,
 		IntervalHours:         req.IntervalHours,
+		StartDate:             req.StartDate,
+		EndDate:               req.EndDate,
 		NextScheduledDate:     req.NextScheduledDate,
 		NextScheduledUsage:    req.NextScheduledUsage,
 		MaintenanceCategory:   req.MaintenanceCategory,
 		MaintenanceType:       req.MaintenanceType,
 		IsActive:              true, // Default
 		RequireCounterReading: false,
+	}
+
+	if schedule.NextScheduledDate == nil && schedule.StartDate != nil {
+		schedule.NextScheduledDate = schedule.StartDate
 	}
 
 	if req.IsActive != nil {
@@ -70,6 +76,12 @@ func (s *MaintenanceService) UpdateMaintenanceSchedule(ctx context.Context, id u
 	}
 	if req.IntervalHours != nil {
 		schedule.IntervalHours = req.IntervalHours
+	}
+	if req.StartDate != nil {
+		schedule.StartDate = req.StartDate
+	}
+	if req.EndDate != nil {
+		schedule.EndDate = req.EndDate
 	}
 	if req.NextScheduledDate != nil {
 		schedule.NextScheduledDate = req.NextScheduledDate

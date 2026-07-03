@@ -205,6 +205,18 @@ func (s *MaintenanceService) UpdateWorkOrder(ctx context.Context, id uuid.UUID, 
 		}
 	}
 
+	if req.Status != nil && *req.Status == "COMPLETED" && wo.Status != "COMPLETED" {
+		if s.assetClient != nil {
+			go func() {
+				bgCtx := context.Background()
+				_ = s.assetClient.UpdateAssetStatus(bgCtx, wo.AssetID, "OPERATIONAL")
+			}()
+		}
+		if s.eventPublisher != nil {
+			_ = s.eventPublisher.PublishWorkOrderCompleted(ctx, wo.ID, wo.AssetID, "INTERVENTION", wo.MaintenanceType)
+		}
+	}
+
 	wo.UpdatedAt = time.Now()
 
 	if err := s.maintenanceRepo.UpdateWorkOrder(ctx, wo); err != nil {
@@ -542,31 +554,6 @@ func (s *MaintenanceService) EndIntervention(ctx context.Context, workOrderID uu
 
 	wo, _ := s.maintenanceRepo.FindWorkOrderByID(ctx, workOrderID)
 	if wo != nil {
-		wo.Status = "COMPLETED"
-		wo.UpdatedAt = now
-		_ = s.maintenanceRepo.UpdateWorkOrder(ctx, wo)
-
-		if s.assetClient != nil {
-			go func() {
-				bgCtx := context.Background()
-				_ = s.assetClient.UpdateAssetStatus(bgCtx, wo.AssetID, "OPERATIONAL")
-			}()
-		}
-
-		// If this is a PREVENTIVE SYSTEMATIC maintenance, we can reset the maintenance schedule
-		if wo.MaintenanceCategory == "PREVENTIVE" && wo.MaintenanceType == "SYSTEMATIC" && s.assetClient != nil {
-			// We might need to pass the rule ID, for now we will just pass nil and the asset service could just update the main last_maintenance_at. 
-			// Wait, the user wanted flexible rules. If the frontend passes a rule ID in the work order or intervention, we can pass it here.
-			// Let's just update the LastMaintenanceAt for the generic asset if no rule ID is provided.
-			_ = s.assetClient.RecordUsage(ctx, wo.AssetID, 0, &now, nil) // The usage shouldn't be 0, we need the current usage, but we don't have it.
-			// Actually, let's just let the asset service handle "LastMaintenanceAt" update if we pass the date.
-			// But wait, the asset service's RecordUsage expects usage_hours to be required. 
-		}
-		
-		if s.eventPublisher != nil {
-			_ = s.eventPublisher.PublishWorkOrderCompleted(ctx, wo.ID, wo.AssetID, "INTERVENTION", inv.MaintenanceType)
-		}
-
 		if inv.StartedAt != nil {
 			durationMins := int(now.Sub(*inv.StartedAt).Minutes())
 			event := secondary.MaintenanceEvent{
@@ -579,7 +566,6 @@ func (s *MaintenanceService) EndIntervention(ctx context.Context, workOrderID uu
 			}()
 		}
 	}
-
 	s.fireAudit(ctx, "END_INTERVENTION", fmt.Sprintf("Ended intervention %s", interventionID))
 	resp := s.buildInterventionResponse(ctx, inv)
 	return &resp, nil
