@@ -65,6 +65,7 @@ func (s *UserService) CreateUser(ctx context.Context, req domain.CreateUserReque
 	}
 
 	user := &domain.User{
+		UserType:           req.UserType,
 		FullName:           req.FullName,
 		Email:              req.Email,
 		Password:           hashedPassword,
@@ -164,6 +165,11 @@ func (s *UserService) UpdateUser(ctx context.Context, id uuid.UUID, req domain.U
 	}
 
 	changes := make(map[string]interface{})
+
+	if req.UserType != nil {
+		changes["user_type"] = map[string]interface{}{"old": user.UserType, "new": *req.UserType}
+		user.UserType = *req.UserType
+	}
 
 	if req.FullName != nil {
 		changes["full_name"] = map[string]interface{}{"old": user.FullName, "new": *req.FullName}

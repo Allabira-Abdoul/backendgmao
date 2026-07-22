@@ -65,6 +65,7 @@ func (s *AuthService) CreateSession(ctx context.Context, req domain.CreateSessio
 	// 4. Generate signed JWT access token and refresh token
 	accessToken, accessExpiredAt, err := s.jwtManager.GenerateAccessToken(
 		user.ID.String(),
+		user.UserType,
 		user.Email,
 		user.FullName,
 		user.Role.Name,
@@ -161,6 +162,7 @@ func (s *AuthService) RefreshSession(ctx context.Context, req domain.RefreshSess
 	// 5. Generate new token pair
 	newAccessToken, newAccessExpiredAt, err := s.jwtManager.GenerateAccessToken(
 		user.ID.String(),
+		user.UserType,
 		user.Email,
 		user.FullName,
 		user.Role.Name,
