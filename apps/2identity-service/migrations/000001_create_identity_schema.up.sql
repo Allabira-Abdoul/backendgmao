@@ -1,0 +1,39 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE TABLE roles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) UNIQUE NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE teams (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) UNIQUE NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_type VARCHAR(50) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    must_change_password BOOLEAN DEFAULT false,
+    status VARCHAR(20) DEFAULT 'ACTIVE',
+    role_id UUID NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
+    team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
+    location VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_user_type CHECK (user_type IN ('SUPERADMIN', 'TECHNICIAN', 'SUPERVISOR', 'VIEWER'))
+);
+
+CREATE TABLE role_privileges (
+    role_id UUID REFERENCES roles(id) ON DELETE CASCADE,
+    privilege VARCHAR(100) NOT NULL,
+    PRIMARY KEY (role_id, privilege)
+);
