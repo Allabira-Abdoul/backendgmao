@@ -21,7 +21,7 @@ const (
 	UserTypeTechnician = "TECHNICIAN"
 	UserTypeSupervisor = "SUPERVISOR"
 	UserTypeViewer     = "VIEWER"
-)gm
+)
 
 // User represents the User entity in the GMAO system.
 type User struct {
