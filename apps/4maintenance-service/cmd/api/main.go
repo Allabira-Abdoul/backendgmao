@@ -9,7 +9,10 @@ import (
 	"syscall"
 	"time"
 
+	primaryEventBus "backend-gmao/apps/maintenance-service/internal/adapters/primary/eventbus"
 	httphandler "backend-gmao/apps/maintenance-service/internal/adapters/primary/http"
+	auditadapter "backend-gmao/apps/maintenance-service/internal/adapters/secondary/audit"
+	importEventBus "backend-gmao/apps/maintenance-service/internal/adapters/secondary/eventbus"
 	sechttp "backend-gmao/apps/maintenance-service/internal/adapters/secondary/http"
 	pgadapter "backend-gmao/apps/maintenance-service/internal/adapters/secondary/postgres"
 	"backend-gmao/apps/maintenance-service/internal/application/service"
@@ -19,8 +22,6 @@ import (
 	"backend-gmao/pkg/db"
 	"backend-gmao/pkg/discovery"
 	"backend-gmao/pkg/eventbus"
-	importEventBus "backend-gmao/apps/maintenance-service/internal/adapters/secondary/eventbus"
-	primaryEventBus "backend-gmao/apps/maintenance-service/internal/adapters/primary/eventbus"
 
 	"github.com/gin-gonic/gin"
 )
@@ -104,7 +105,8 @@ func main() {
 	// --- Application Services ---
 	jwtManagerForInternal := auth.NewJWTManager(jwtSecret, time.Minute*5, time.Minute*5)
 	auditClient := audit.NewClient("maintenance-service", jwtManagerForInternal)
-	maintenanceService := service.NewMaintenanceService(maintenanceRepo, analyticsClient, auditClient, userClient, assetClient, eventPublisher)
+	auditLogger := auditadapter.NewCompositeLogger(auditClient, eventPublisher)
+	maintenanceService := service.NewMaintenanceService(maintenanceRepo, analyticsClient, auditLogger, userClient, assetClient, eventPublisher)
 
 	assetEventsHandler := primaryEventBus.NewAssetEventsHandler(bus, maintenanceService)
 	if err := assetEventsHandler.Start(); err != nil {
