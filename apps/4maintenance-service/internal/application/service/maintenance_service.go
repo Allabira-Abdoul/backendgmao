@@ -8,8 +8,6 @@ import (
 
 	"backend-gmao/apps/maintenance-service/internal/core/domain"
 	"backend-gmao/apps/maintenance-service/internal/core/ports/secondary"
-	"backend-gmao/pkg/audit"
-	"backend-gmao/pkg/middleware"
 
 	"github.com/google/uuid"
 )
@@ -23,7 +21,7 @@ var (
 type MaintenanceService struct {
 	maintenanceRepo secondary.MaintenanceRepository
 	analyticsClient secondary.AnalyticsClient
-	auditClient     audit.Client
+	auditLogger     secondary.AuditLogger
 	userClient      secondary.UserClient
 	assetClient     secondary.AssetClient
 	eventPublisher  secondary.EventPublisher
@@ -33,7 +31,7 @@ type MaintenanceService struct {
 func NewMaintenanceService(
 	maintenanceRepo secondary.MaintenanceRepository,
 	analyticsClient secondary.AnalyticsClient,
-	auditClient audit.Client,
+	auditLogger secondary.AuditLogger,
 	userClient secondary.UserClient,
 	assetClient secondary.AssetClient,
 	eventPublisher secondary.EventPublisher,
@@ -41,57 +39,11 @@ func NewMaintenanceService(
 	return &MaintenanceService{
 		maintenanceRepo: maintenanceRepo,
 		analyticsClient: analyticsClient,
-		auditClient:     auditClient,
+		auditLogger:     auditLogger,
 		userClient:      userClient,
 		assetClient:     assetClient,
 		eventPublisher:  eventPublisher,
 	}
-}
-
-func (s *MaintenanceService) fireAudit(ctx context.Context, action, details string) {
-	userID, ok := ctx.Value(middleware.ContextKeyUserID).(string)
-	var uidPtr *string
-	if ok && userID != "" {
-		uidPtr = &userID
-	}
-
-	var userName string
-	if name, ok := ctx.Value(middleware.ContextKeyFullName).(string); ok {
-		userName = name
-	}
-
-	go func() {
-		bgCtx := context.Background()
-
-		// Publish to HTTP Audit Service
-		if s.auditClient != nil {
-			_ = s.auditClient.LogEvent(bgCtx, audit.AuditEvent{
-				ServiceName: "maintenance-service",
-				Action:      action,
-				Details:     details,
-				UserID:      uidPtr,
-				UserName:    userName,
-			})
-		}
-
-		// Publish to RabbitMQ Audit Exchange
-		if s.eventPublisher != nil {
-			var actorID *uuid.UUID
-			if uidPtr != nil {
-				parsed, err := uuid.Parse(*uidPtr)
-				if err == nil {
-					actorID = &parsed
-				}
-			}
-			changes := map[string]interface{}{
-				"details": details,
-			}
-			if userName != "" {
-				changes["user_name"] = userName
-			}
-			_ = s.eventPublisher.PublishAuditLog(bgCtx, action, "MAINTENANCE", "", actorID, changes)
-		}
-	}()
 }
 
 func (s *MaintenanceService) CreateWorkOrder(ctx context.Context, req domain.CreateOrdreTravailRequest) (*domain.OrdreTravailResponse, error) {
@@ -138,7 +90,7 @@ func (s *MaintenanceService) CreateWorkOrder(ctx context.Context, req domain.Cre
 		return nil, err
 	}
 
-	s.fireAudit(ctx, "CREATE_WORK_ORDER", fmt.Sprintf("Created work order %s for asset %s", wo.ID, wo.AssetID))
+	s.auditLogger.LogAction(ctx, "CREATE_WORK_ORDER", fmt.Sprintf("Created work order %s for asset %s", wo.ID, wo.AssetID))
 
 	resp := s.buildOrdreTravailResponse(ctx, wo)
 	return &resp, nil
@@ -223,7 +175,7 @@ func (s *MaintenanceService) UpdateWorkOrder(ctx context.Context, id uuid.UUID, 
 		return nil, err
 	}
 
-	s.fireAudit(ctx, "UPDATE_WORK_ORDER", fmt.Sprintf("Updated work order %s", wo.ID))
+	s.auditLogger.LogAction(ctx, "UPDATE_WORK_ORDER", fmt.Sprintf("Updated work order %s", wo.ID))
 
 	resp := s.buildOrdreTravailResponse(ctx, wo)
 	return &resp, nil
@@ -234,12 +186,12 @@ func (s *MaintenanceService) DeleteWorkOrder(ctx context.Context, id uuid.UUID) 
 	if err != nil {
 		return ErrWorkOrderNotFound
 	}
-	
+
 	if err := s.maintenanceRepo.DeleteWorkOrder(ctx, id); err != nil {
 		return err
 	}
-	
-	s.fireAudit(ctx, "COMPUTE_ANALYTICS", fmt.Sprintf("Asset %s computed", id))
+
+	s.auditLogger.LogAction(ctx, "COMPUTE_ANALYTICS", fmt.Sprintf("Asset %s computed", id))
 
 	return nil
 }
@@ -263,7 +215,7 @@ func (s *MaintenanceService) CreateDefectAlert(ctx context.Context, assetID uuid
 		return nil, fmt.Errorf("create defect alert: %w", err)
 	}
 
-	s.fireAudit(ctx, "CREATE_DEFECT_ALERT", fmt.Sprintf("Alert %s created for asset %s", alert.ID, assetID))
+	s.auditLogger.LogAction(ctx, "CREATE_DEFECT_ALERT", fmt.Sprintf("Alert %s created for asset %s", alert.ID, assetID))
 
 	// Get asset info and user info to return fully populated response
 	var assetName, reporterName string
@@ -313,13 +265,13 @@ func (s *MaintenanceService) ReviewDefectAlert(ctx context.Context, id uuid.UUID
 		return nil, fmt.Errorf("update defect alert: %w", err)
 	}
 
-	s.fireAudit(ctx, "REVIEW_DEFECT_ALERT", fmt.Sprintf("Alert %s marked as %s", alert.ID, alert.Status))
+	s.auditLogger.LogAction(ctx, "REVIEW_DEFECT_ALERT", fmt.Sprintf("Alert %s marked as %s", alert.ID, alert.Status))
 
 	// If approved, create a work order automatically
 	if req.Status == domain.DefectStatusApproved {
 		woTitle := fmt.Sprintf("Defect: %s", alert.Title)
 		woDesc := fmt.Sprintf("Generated from defect alert %s.\n\nDescription: %s\nReview Notes: %s", alert.ID, alert.Description, req.ReviewNotes)
-		
+
 		woReq := domain.CreateOrdreTravailRequest{
 			Title:               woTitle,
 			Description:         woDesc,
@@ -328,7 +280,7 @@ func (s *MaintenanceService) ReviewDefectAlert(ctx context.Context, id uuid.UUID
 			MaintenanceCategory: "CORRECTIVE",
 			MaintenanceType:     "CURATIVE",
 		}
-		
+
 		// Ignore error here so that even if WO creation fails, the alert is still approved.
 		// In a real system, you might wrap this in a database transaction.
 		_, _ = s.CreateWorkOrder(ctx, woReq)
@@ -386,9 +338,9 @@ func (s *MaintenanceService) StartWorkOrder(ctx context.Context, id uuid.UUID) (
 		if err := s.maintenanceRepo.UpdateWorkOrder(ctx, wo); err != nil {
 			return nil, err
 		}
-		
-		s.fireAudit(ctx, "START_WORK_ORDER", fmt.Sprintf("Started work order %s", wo.ID))
-		
+
+		s.auditLogger.LogAction(ctx, "START_WORK_ORDER", fmt.Sprintf("Started work order %s", wo.ID))
+
 		if s.eventPublisher != nil {
 			_ = s.eventPublisher.PublishWorkOrderStarted(ctx, wo.ID, wo.AssetID, "INTERVENTION")
 		}
@@ -452,7 +404,7 @@ func (s *MaintenanceService) RecordIntervention(ctx context.Context, workOrderID
 	// Note: We no longer trigger analytics here automatically because duration is not known until EndIntervention
 	// It will be triggered in EndIntervention instead.
 
-	s.fireAudit(ctx, "RECORD_INTERVENTION", fmt.Sprintf("Recorded intervention %s for work order %s", intervention.ID, intervention.WorkOrderID))
+	s.auditLogger.LogAction(ctx, "RECORD_INTERVENTION", fmt.Sprintf("Recorded intervention %s for work order %s", intervention.ID, intervention.WorkOrderID))
 
 	resp := s.buildInterventionResponse(ctx, intervention)
 	return &resp, nil
@@ -504,7 +456,7 @@ func (s *MaintenanceService) UpdateIntervention(ctx context.Context, workOrderID
 		return nil, err
 	}
 
-	s.fireAudit(ctx, "UPDATE_INTERVENTION", fmt.Sprintf("Updated intervention %s", interventionID))
+	s.auditLogger.LogAction(ctx, "UPDATE_INTERVENTION", fmt.Sprintf("Updated intervention %s", interventionID))
 	resp := s.buildInterventionResponse(ctx, inv)
 	return &resp, nil
 }
@@ -535,7 +487,7 @@ func (s *MaintenanceService) StartIntervention(ctx context.Context, workOrderID 
 		}()
 	}
 
-	s.fireAudit(ctx, "START_INTERVENTION", fmt.Sprintf("Started intervention %s", interventionID))
+	s.auditLogger.LogAction(ctx, "START_INTERVENTION", fmt.Sprintf("Started intervention %s", interventionID))
 	resp := s.buildInterventionResponse(ctx, inv)
 	return &resp, nil
 }
@@ -566,7 +518,7 @@ func (s *MaintenanceService) EndIntervention(ctx context.Context, workOrderID uu
 			}()
 		}
 	}
-	s.fireAudit(ctx, "END_INTERVENTION", fmt.Sprintf("Ended intervention %s", interventionID))
+	s.auditLogger.LogAction(ctx, "END_INTERVENTION", fmt.Sprintf("Ended intervention %s", interventionID))
 	resp := s.buildInterventionResponse(ctx, inv)
 	return &resp, nil
 }
@@ -636,7 +588,7 @@ func (s *MaintenanceService) CreateInspection(ctx context.Context, req domain.Cr
 		}()
 	}
 
-	s.fireAudit(ctx, "RECORD_INSPECTION", fmt.Sprintf("Recorded inspection %s for asset %s", inspection.ID, inspection.AssetID))
+	s.auditLogger.LogAction(ctx, "RECORD_INSPECTION", fmt.Sprintf("Recorded inspection %s for asset %s", inspection.ID, inspection.AssetID))
 
 	resp := s.buildInspectionResponse(ctx, inspection)
 	return &resp, nil
@@ -698,7 +650,7 @@ func (s *MaintenanceService) UpdateInspection(ctx context.Context, inspectionID 
 		}()
 	}
 
-	s.fireAudit(ctx, "UPDATE_INSPECTION", fmt.Sprintf("Updated inspection %s", inspectionID))
+	s.auditLogger.LogAction(ctx, "UPDATE_INSPECTION", fmt.Sprintf("Updated inspection %s", inspectionID))
 	resp := s.buildInspectionResponse(ctx, ins)
 	return &resp, nil
 }
@@ -715,7 +667,7 @@ func (s *MaintenanceService) StartInspection(ctx context.Context, inspectionID u
 		return nil, err
 	}
 
-	s.fireAudit(ctx, "START_INSPECTION", fmt.Sprintf("Started inspection %s", inspectionID))
+	s.auditLogger.LogAction(ctx, "START_INSPECTION", fmt.Sprintf("Started inspection %s", inspectionID))
 	resp := s.buildInspectionResponse(ctx, ins)
 	return &resp, nil
 }
@@ -732,7 +684,7 @@ func (s *MaintenanceService) EndInspection(ctx context.Context, inspectionID uui
 		return nil, err
 	}
 
-	s.fireAudit(ctx, "END_INSPECTION", fmt.Sprintf("Ended inspection %s", inspectionID))
+	s.auditLogger.LogAction(ctx, "END_INSPECTION", fmt.Sprintf("Ended inspection %s", inspectionID))
 	resp := s.buildInspectionResponse(ctx, ins)
 	return &resp, nil
 }
@@ -912,7 +864,7 @@ func (s *MaintenanceService) HandleAssetCreated(ctx context.Context, assetID uui
 			// Log but continue
 			fmt.Printf("Failed to create maintenance schedule for asset %s: %v\n", assetID, err)
 		} else {
-			s.fireAudit(ctx, "CREATE_MAINTENANCE_SCHEDULE", fmt.Sprintf("Created schedule %s for asset %s", schedule.ID, assetID))
+			s.auditLogger.LogAction(ctx, "CREATE_MAINTENANCE_SCHEDULE", fmt.Sprintf("Created schedule %s for asset %s", schedule.ID, assetID))
 		}
 	}
 

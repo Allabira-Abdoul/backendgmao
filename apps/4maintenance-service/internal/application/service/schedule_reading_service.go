@@ -49,7 +49,7 @@ func (s *MaintenanceService) CreateMaintenanceSchedule(ctx context.Context, req 
 		return nil, fmt.Errorf("create schedule: %w", err)
 	}
 
-	s.fireAudit(ctx, "MAINTENANCE_SCHEDULE_CREATED", fmt.Errorf("Schedule %s created for asset %s", schedule.ID, schedule.AssetID).Error())
+	s.auditLogger.LogAction(ctx, "MAINTENANCE_SCHEDULE_CREATED", fmt.Errorf("Schedule %s created for asset %s", schedule.ID, schedule.AssetID).Error())
 
 	resp := schedule.ToResponse()
 	return &resp, nil
@@ -106,7 +106,7 @@ func (s *MaintenanceService) UpdateMaintenanceSchedule(ctx context.Context, id u
 		return nil, fmt.Errorf("update schedule: %w", err)
 	}
 
-	s.fireAudit(ctx, "MAINTENANCE_SCHEDULE_UPDATED", fmt.Errorf("Schedule %s updated", schedule.ID).Error())
+	s.auditLogger.LogAction(ctx, "MAINTENANCE_SCHEDULE_UPDATED", fmt.Errorf("Schedule %s updated", schedule.ID).Error())
 
 	resp := schedule.ToResponse()
 	return &resp, nil
@@ -175,7 +175,7 @@ func (s *MaintenanceService) RecordCounterReading(ctx context.Context, req domai
 		return nil, fmt.Errorf("create counter reading: %w", err)
 	}
 
-	s.fireAudit(ctx, "COUNTER_READING_RECORDED", fmt.Errorf("Reading %f %s recorded for asset %s", reading.Value, reading.Unit, reading.AssetID).Error())
+	s.auditLogger.LogAction(ctx, "COUNTER_READING_RECORDED", fmt.Errorf("Reading %f %s recorded for asset %s", reading.Value, reading.Unit, reading.AssetID).Error())
 
 	resp := reading.ToResponse()
 	return &resp, nil
