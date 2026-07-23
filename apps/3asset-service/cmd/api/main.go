@@ -58,26 +58,20 @@ func main() {
 	// --- Auto-Migrate Tables ---
 	log.Println("Running database migrations...")
 	if err := database.AutoMigrate(
-		&domain.EquipmentModel{}, 
-		&domain.PartModel{}, 
-		&domain.EquipmentInstance{}, 
-		&domain.PartInstance{}, 
-		&domain.PartConsumptionLog{},
-		&domain.Supplier{},
-		&domain.Consumable{},
-		&domain.ConsumableLocationStock{},
-		&domain.ConsumableConsumptionLog{},
-		&domain.ModelSupplier{},
-		&domain.EquipmentModelPartRequirement{},
+		&domain.Site{}, 
+		&domain.System{}, 
+		&domain.Asset{}, 
+		&domain.Subsystem{}, 
+		&domain.InventoryItem{},
+		&domain.Component{},
 	); err != nil {
 		log.Fatalf("Failed to migrate Asset tables: %v", err)
 	}
 
-
 	log.Println("Database migrations completed")
 
 	// --- Seed Default Data ---
-	pgadapter.Seed(database)
+	pgadapter.SeedData(database)
 
 	// --- JWT Manager ---
 	jwtSecret := getEnv("JWT_SECRET", "gmao-dev-secret-change-in-production")
@@ -95,7 +89,7 @@ func main() {
 		}
 	}
 
-	jwtManager := auth.NewJWTManager(jwtSecret, accessExpiry, refreshExpiry)
+	_ = auth.NewJWTManager(jwtSecret, accessExpiry, refreshExpiry)
 
 	// --- Repositories (Secondary Adapters) ---
 	assetRepo := pgadapter.NewAssetRepository(database)
@@ -107,10 +101,10 @@ func main() {
 		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
 	}
 
-	eventPublisher := importEventBus.NewRabbitMQPublisher(bus)
+	_ = importEventBus.NewRabbitMQPublisher(bus)
 
 	// --- Application Services ---
-	assetService := service.NewAssetService(assetRepo,  eventPublisher)
+	assetService := service.NewAssetService(assetRepo)
 
 	// --- Start Consuming Events ---
 	importPrimaryEventBus.StartConsumingWorkOrderEvents(bus, assetService)
@@ -124,12 +118,9 @@ func main() {
 	// --- Initialize Gin Router ---
 	router := gin.Default()
 
-	// Health check
-	healthHandler := httphandler.NewHealthHandler(database)
-	router.GET("/health", healthHandler.HealthCheck)
-
 	// Register all routes
-	httphandler.RegisterRoutes(router, jwtManager, assetService)
+	assetHandler := httphandler.NewAssetHandler(assetService)
+	httphandler.RegisterRoutes(router, assetHandler)
 
 	// --- Start Server ---
 	go func() {

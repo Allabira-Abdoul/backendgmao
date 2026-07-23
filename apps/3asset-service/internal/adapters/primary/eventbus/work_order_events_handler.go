@@ -33,10 +33,10 @@ func StartConsumingWorkOrderEvents(bus eventbus.EventBus, assetService primary.A
 		}
 
 		// Update to OFFLINE
-		if err := assetService.UpdateEquipmentStatus(context.Background(), assetID, "OFFLINE"); err != nil {
-			log.Printf("Failed to update equipment status to OFFLINE: %v", err)
+		if err := assetService.UpdateAssetStatus(context.Background(), assetID, "OFFLINE"); err != nil {
+			log.Printf("Failed to update asset status to OFFLINE: %v", err)
 		} else {
-			log.Printf("Set equipment %s to OFFLINE due to intervention start", assetID)
+			log.Printf("Set asset %s to OFFLINE due to intervention start", assetID)
 		}
 	})
 
@@ -71,10 +71,10 @@ func StartConsumingWorkOrderEvents(bus eventbus.EventBus, assetService primary.A
 			newStatus = "DEGRADED"
 		}
 
-		if err := assetService.UpdateEquipmentStatus(context.Background(), assetID, newStatus); err != nil {
-			log.Printf("Failed to update equipment status to %s: %v", newStatus, err)
+		if err := assetService.UpdateAssetStatus(context.Background(), assetID, newStatus); err != nil {
+			log.Printf("Failed to update asset status to %s: %v", newStatus, err)
 		} else {
-			log.Printf("Set equipment %s to %s due to intervention completion", assetID, newStatus)
+			log.Printf("Set asset %s to %s due to intervention completion", assetID, newStatus)
 		}
 	})
 

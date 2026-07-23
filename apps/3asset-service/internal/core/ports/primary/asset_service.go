@@ -3,45 +3,23 @@ package primary
 import (
 	"context"
 
-	"backend-gmao/apps/asset-service/internal/core/domain"
 	"github.com/google/uuid"
+	"backend-gmao/apps/asset-service/internal/core/domain"
 )
 
 type AssetService interface {
-	// Models
-	CreateEquipmentModel(ctx context.Context, req domain.CreateEquipmentModelRequest) (domain.EquipmentModelResponse, error)
-	CreatePartModel(ctx context.Context, req domain.CreatePartModelRequest) (domain.PartModelResponse, error)
-	GetEquipmentModels(ctx context.Context) ([]domain.EquipmentModelResponse, error)
-	GetEquipmentModelByID(ctx context.Context, id uuid.UUID) (domain.EquipmentModelResponse, error)
-	GetPartModels(ctx context.Context) ([]domain.PartModelResponse, error)
-	UpdateEquipmentModel(ctx context.Context, id uuid.UUID, req domain.UpdateEquipmentModelRequest) (domain.EquipmentModelResponse, error)
-	UpdatePartModel(ctx context.Context, id uuid.UUID, req domain.UpdatePartModelRequest) (domain.PartModelResponse, error)
+	// Site
+	CreateSite(ctx context.Context, req domain.CreateSiteRequest) (*domain.SiteResponse, error)
+	GetSiteHierarchy(ctx context.Context, siteID uuid.UUID) (*domain.SiteResponse, error)
+	GetAllSites(ctx context.Context) ([]domain.SiteResponse, error)
 
-	// Suppliers
-	CreateSupplier(ctx context.Context, req domain.CreateSupplierRequest) (domain.SupplierResponse, error)
-	GetSuppliers(ctx context.Context) ([]domain.SupplierResponse, error)
-	UpdateSupplier(ctx context.Context, id uuid.UUID, req domain.UpdateSupplierRequest) (domain.SupplierResponse, error)
-	DeleteSupplier(ctx context.Context, id uuid.UUID) error
-	AddSupplierToEquipmentModel(ctx context.Context, modelID uuid.UUID, req domain.AddModelSupplierRequest) (domain.ModelSupplierResponse, error)
-	AddSupplierToPartModel(ctx context.Context, modelID uuid.UUID, req domain.AddModelSupplierRequest) (domain.ModelSupplierResponse, error)
+	// System & Asset & Subsystem
+	CreateSystem(ctx context.Context, req domain.CreateSystemRequest) (*domain.SystemResponse, error)
+	CreateAsset(ctx context.Context, req domain.CreateAssetRequest) (*domain.AssetResponse, error)
+	UpdateAssetStatus(ctx context.Context, assetID uuid.UUID, status string) error
+	CreateSubsystem(ctx context.Context, req domain.CreateSubsystemRequest) (*domain.SubsystemResponse, error)
 
-	// Instances
-	CreateEquipmentInstance(ctx context.Context, req domain.CreateEquipmentInstanceRequest) (domain.EquipmentInstanceResponse, error)
-	CreatePartInstance(ctx context.Context, req domain.CreatePartInstanceRequest) (domain.PartInstanceResponse, error)
-	GetEquipmentInstances(ctx context.Context) ([]domain.EquipmentInstanceResponse, error)
-	GetEquipmentInstanceByCode(ctx context.Context, code string) (domain.EquipmentInstanceResponse, error)
-	GetEquipmentInstanceByID(ctx context.Context, id uuid.UUID) (domain.EquipmentInstanceResponse, error)
-	UpdateEquipmentStatus(ctx context.Context, id uuid.UUID, newStatus string) error
-	UpdateEquipmentLocation(ctx context.Context, id uuid.UUID, newLocation string) error
-
-	MovePartInstance(ctx context.Context, partInstanceID uuid.UUID, req domain.MovePartInstanceRequest) (domain.PartInstanceResponse, error)
-	ConsumePart(ctx context.Context, req domain.ConsumePartRequest, userID uuid.UUID) error
-	RecordUsage(ctx context.Context, id uuid.UUID, req domain.RecordUsageRequest) error
-
-	// Consumables
-	CreateConsumable(ctx context.Context, req domain.CreateConsumableRequest) (domain.ConsumableResponse, error)
-	GetConsumables(ctx context.Context) ([]domain.ConsumableResponse, error)
-	GetConsumableByID(ctx context.Context, id uuid.UUID) (domain.ConsumableResponse, error)
-	AddConsumableStock(ctx context.Context, id uuid.UUID, req domain.AddConsumableStockRequest) (domain.ConsumableResponse, error)
-	ConsumeConsumable(ctx context.Context, req domain.ConsumeConsumableRequest, userID uuid.UUID) error
+	// Inventory & Components
+	CreateInventoryItem(ctx context.Context, req domain.CreateInventoryItemRequest) (*domain.InventoryItemResponse, error)
+	CreateComponent(ctx context.Context, req domain.CreateComponentRequest) (*domain.ComponentResponse, error)
 }

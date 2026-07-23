@@ -6,471 +6,305 @@ import (
 	"github.com/google/uuid"
 )
 
-var ValidLocations = []string{"DLA", "NSI", "GOU", "MVR", "BPC", "NGE"}
-
-func IsValidLocation(loc string) bool {
-	for _, valid := range ValidLocations {
-		if loc == valid {
-			return true
-		}
-	}
-	return false
+// Site represents the physical location.
+type Site struct {
+	ID          uuid.UUID `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	Name        string    `gorm:"column:name;not null;uniqueIndex" json:"name"`
+	Location    string    `gorm:"column:location" json:"location"`
+	Description string    `gorm:"column:description" json:"description"`
+	Systems     []System  `gorm:"foreignKey:SiteID" json:"systems,omitempty"`
+	CreatedAt   time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt   time.Time `gorm:"column:updated_at" json:"updated_at"`
 }
 
-// EquipmentModel represents the catalog definition (Blueprint) of an equipment.
-type EquipmentModel struct {
-	ID               uuid.UUID                       `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	Name             string                          `gorm:"column:name;not null;uniqueIndex" json:"name"`
-	Category         string                          `gorm:"column:category;not null" json:"category"`
-	Description      string                          `gorm:"column:description" json:"description"`
-	Suppliers        []ModelSupplier                 `gorm:"foreignKey:EquipmentModelID" json:"suppliers,omitempty"`
-	PartRequirements []EquipmentModelPartRequirement `gorm:"foreignKey:EquipmentModelID" json:"part_requirements,omitempty"`
-	CreatedAt        time.Time                       `gorm:"column:created_at" json:"created_at"`
-	UpdatedAt        time.Time                       `gorm:"column:updated_at" json:"updated_at"`
+func (Site) TableName() string { return "sites" }
+
+// System represents a major functional group within a site.
+type System struct {
+	ID          uuid.UUID `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	SiteID      uuid.UUID `gorm:"column:site_id;type:uuid;not null;uniqueIndex:idx_sys_site_name" json:"site_id"`
+	Name        string    `gorm:"column:name;not null;uniqueIndex:idx_sys_site_name" json:"name"`
+	Description string    `gorm:"column:description" json:"description"`
+	Status      string    `gorm:"column:status;not null;default:'OPERATIONAL'" json:"status"`
+	Assets      []Asset   `gorm:"foreignKey:SystemID" json:"assets,omitempty"`
+	CreatedAt   time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt   time.Time `gorm:"column:updated_at" json:"updated_at"`
 }
 
-func (EquipmentModel) TableName() string { return "equipment_models" }
+func (System) TableName() string { return "systems" }
 
-// PartModel represents the catalog definition of a standard part, managing global spare inventory.
-type PartModel struct {
-	ID            uuid.UUID       `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	Name          string          `gorm:"column:name;not null;uniqueIndex" json:"name"`
-	Category      string          `gorm:"column:category;not null" json:"category"`
-	SpareQuantity int             `gorm:"column:spare_quantity;default:0" json:"spare_quantity"`
-	IsSerialized  bool            `gorm:"column:is_serialized;default:false" json:"is_serialized"`
-	Suppliers     []ModelSupplier `gorm:"foreignKey:PartModelID" json:"suppliers,omitempty"`
-	CreatedAt     time.Time       `gorm:"column:created_at" json:"created_at"`
-	UpdatedAt     time.Time       `gorm:"column:updated_at" json:"updated_at"`
+// Asset represents a specific piece of equipment within a system.
+type Asset struct {
+	ID            uuid.UUID   `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	SystemID      uuid.UUID   `gorm:"column:system_id;type:uuid;not null;uniqueIndex:idx_ast_sys_name" json:"system_id"`
+	Name          string      `gorm:"column:name;not null;uniqueIndex:idx_ast_sys_name" json:"name"`
+	Code          string      `gorm:"column:code;uniqueIndex" json:"code"`
+	Model         string      `gorm:"column:model" json:"model"`
+	Manufacturer  string      `gorm:"column:manufacturer" json:"manufacturer"`
+	Status        string      `gorm:"column:status;not null;default:'OPERATIONAL'" json:"status"`
+	RulPercentage float64     `gorm:"column:rul_percentage;not null;default:100.0" json:"rul_percentage"`
+	Subsystems    []Subsystem `gorm:"foreignKey:AssetID" json:"subsystems,omitempty"`
+	CreatedAt     time.Time   `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt     time.Time   `gorm:"column:updated_at" json:"updated_at"`
 }
 
-func (PartModel) TableName() string { return "part_models" }
+func (Asset) TableName() string { return "assets" }
 
-// EquipmentModelPartRequirement defines the required parts for an equipment model.
-type EquipmentModelPartRequirement struct {
-	ID               uuid.UUID `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	EquipmentModelID uuid.UUID `gorm:"column:equipment_model_id;type:uuid;not null;uniqueIndex:idx_eq_part_req" json:"equipment_model_id"`
-	PartModelID      uuid.UUID `gorm:"column:part_model_id;type:uuid;not null;uniqueIndex:idx_eq_part_req" json:"part_model_id"`
-	PartModel        PartModel `gorm:"foreignKey:PartModelID" json:"part_model,omitempty"`
-	Quantity         int       `gorm:"column:quantity;not null;default:1" json:"quantity"`
+// Subsystem represents a functional sub-part of an asset.
+type Subsystem struct {
+	ID          uuid.UUID   `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	AssetID     uuid.UUID   `gorm:"column:asset_id;type:uuid;not null;uniqueIndex:idx_subast_name" json:"asset_id"`
+	Name        string      `gorm:"column:name;not null;uniqueIndex:idx_subast_name" json:"name"`
+	Description string      `gorm:"column:description" json:"description"`
+	Criticality string      `gorm:"column:criticality;default:'MEDIUM'" json:"criticality"`
+	Components  []Component `gorm:"foreignKey:SubsystemID" json:"components,omitempty"`
+	CreatedAt   time.Time   `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt   time.Time   `gorm:"column:updated_at" json:"updated_at"`
 }
 
-func (EquipmentModelPartRequirement) TableName() string { return "equipment_model_part_requirements" }
+func (Subsystem) TableName() string { return "subsystems" }
 
-// Consumable represents maintenance supplies like fuel, screws, lubricants.
-type Consumable struct {
-	ID            uuid.UUID                 `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	Name          string                    `gorm:"column:name;not null;uniqueIndex" json:"name"`
-	Category      string                    `gorm:"column:category;not null" json:"category"`
-	UnitOfMeasure string                    `gorm:"column:unit_of_measure;not null" json:"unit_of_measure"`
-	TotalStock    int                       `gorm:"column:total_stock;default:0" json:"total_stock"`
-	Suppliers     []ModelSupplier           `gorm:"foreignKey:ConsumableID" json:"suppliers,omitempty"`
-	LocationStock []ConsumableLocationStock `gorm:"foreignKey:ConsumableID" json:"location_stock,omitempty"`
-	CreatedAt     time.Time                 `gorm:"column:created_at" json:"created_at"`
-	UpdatedAt     time.Time                 `gorm:"column:updated_at" json:"updated_at"`
+// InventoryItem represents a catalog item (SPARE_PART or CONSUMABLE).
+type InventoryItem struct {
+	ID                   uuid.UUID `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	ItemType             string    `gorm:"column:item_type;not null" json:"item_type"` // 'SPARE_PART' or 'CONSUMABLE'
+	PartNumber           string    `gorm:"column:part_number;uniqueIndex;not null" json:"part_number"`
+	Name                 string    `gorm:"column:name;not null" json:"name"`
+	Category             string    `gorm:"column:category" json:"category"`
+	StockQuantity        int       `gorm:"column:stock_quantity;default:0" json:"stock_quantity"`
+	ReorderPoint         int       `gorm:"column:reorder_point;default:0" json:"reorder_point"`
+	SupplierLeadTimeDays int       `gorm:"column:supplier_lead_time_days;default:0" json:"supplier_lead_time_days"`
+	UnitOfMeasure        string    `gorm:"column:unit_of_measure;default:'unit'" json:"unit_of_measure"`
+	CreatedAt            time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt            time.Time `gorm:"column:updated_at" json:"updated_at"`
 }
 
-func (Consumable) TableName() string { return "consumables" }
+func (InventoryItem) TableName() string { return "inventory_items" }
 
-type ConsumableLocationStock struct {
-	ID           uuid.UUID `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	ConsumableID uuid.UUID `gorm:"column:consumable_id;type:uuid;not null;uniqueIndex:idx_consumable_loc" json:"consumable_id"`
-	Location     string    `gorm:"column:location;not null;uniqueIndex:idx_consumable_loc" json:"location"`
-	Quantity     int       `gorm:"column:quantity;not null;default:0" json:"quantity"`
+// Component represents an actual physical instance installed on a subsystem.
+type Component struct {
+	ID              uuid.UUID     `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	SubsystemID     uuid.UUID     `gorm:"column:subsystem_id;type:uuid;not null;uniqueIndex:idx_comp_subsys_name" json:"subsystem_id"`
+	InventoryItemID uuid.UUID     `gorm:"column:inventory_item_id;type:uuid;not null" json:"inventory_item_id"`
+	InventoryItem   InventoryItem `gorm:"foreignKey:InventoryItemID" json:"inventory_item,omitempty"`
+	Name            string        `gorm:"column:name;not null;uniqueIndex:idx_comp_subsys_name" json:"name"`
+	SerialNumber    string        `gorm:"column:serial_number" json:"serial_number"`
+	Status          string        `gorm:"column:status;not null;default:'OPERATIONAL'" json:"status"`
+	InstalledAt     time.Time     `gorm:"column:installed_at;default:CURRENT_TIMESTAMP" json:"installed_at"`
+	CreatedAt       time.Time     `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt       time.Time     `gorm:"column:updated_at" json:"updated_at"`
 }
 
-func (ConsumableLocationStock) TableName() string { return "consumable_location_stocks" }
+func (Component) TableName() string { return "components" }
 
-type ConsumableConsumptionLog struct {
-	ID           uuid.UUID  `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	ConsumableID uuid.UUID  `gorm:"column:consumable_id;type:uuid;not null" json:"consumable_id"`
-	QuantityUsed int        `gorm:"column:quantity_used;not null" json:"quantity_used"`
-	WorkOrderID  *uuid.UUID `gorm:"column:work_order_id;type:uuid" json:"work_order_id"`
-	ConsumedBy   uuid.UUID  `gorm:"column:consumed_by;type:uuid;not null" json:"consumed_by"`
-	Notes        string     `gorm:"column:notes" json:"notes"`
-	CreatedAt    time.Time  `gorm:"column:created_at" json:"created_at"`
-}
-
-func (ConsumableConsumptionLog) TableName() string { return "consumable_consumption_logs" }
-
-// EquipmentInstance represents the actual physical equipment.
-type EquipmentInstance struct {
-	ID               uuid.UUID        `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	Code             string           `gorm:"column:code;uniqueIndex;not null" json:"code"`
-	EquipmentModelID uuid.UUID        `gorm:"column:equipment_model_id;type:uuid;not null" json:"equipment_model_id"`
-	EquipmentModel   EquipmentModel   `gorm:"foreignKey:EquipmentModelID" json:"equipment_model,omitempty"`
-	SupplierID       *uuid.UUID       `gorm:"column:supplier_id;type:uuid" json:"supplier_id,omitempty"`
-	Supplier         *Supplier        `gorm:"foreignKey:SupplierID" json:"supplier,omitempty"`
-	Status           string           `gorm:"column:status;not null;default:'OPERATIONAL'" json:"status"`
-	Location         string           `gorm:"column:location;not null" json:"location"`
-	Parts            []PartInstance   `gorm:"foreignKey:EquipmentInstanceID" json:"parts,omitempty"`
-	UsageHours       float64          `gorm:"column:usage_hours;not null;default:0" json:"usage_hours"`
-	CreatedAt        time.Time        `gorm:"column:created_at" json:"created_at"`
-	UpdatedAt        time.Time        `gorm:"column:updated_at" json:"updated_at"`
-}
-
-func (EquipmentInstance) TableName() string { return "equipment_instances" }
-
-// PartInstance represents the actual physical part installed on an equipment.
-type PartInstance struct {
-	ID                  uuid.UUID  `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	EquipmentInstanceID *uuid.UUID `gorm:"column:equipment_instance_id;type:uuid" json:"equipment_instance_id"`
-	PartModelID         uuid.UUID  `gorm:"column:part_model_id;type:uuid;not null" json:"part_model_id"`
-	PartModel           PartModel  `gorm:"foreignKey:PartModelID" json:"part_model,omitempty"`
-	SupplierID          *uuid.UUID `gorm:"column:supplier_id;type:uuid" json:"supplier_id,omitempty"`
-	Supplier            *Supplier  `gorm:"foreignKey:SupplierID" json:"supplier,omitempty"`
-	SerialNumber        string     `gorm:"column:serial_number" json:"serial_number"`
-	Status              string     `gorm:"column:status;not null;default:'OPERATIONAL'" json:"status"`
-	CurrentLocation     string     `gorm:"column:current_location;not null;default:'Warehouse'" json:"current_location"`
-	CreatedAt           time.Time  `gorm:"column:created_at" json:"created_at"`
-	UpdatedAt           time.Time  `gorm:"column:updated_at" json:"updated_at"`
-}
-
-func (PartInstance) TableName() string { return "part_instances" }
-
-// PartConsumptionLog tracks the usage of non-serialized (consumable) parts.
-type PartConsumptionLog struct {
-	ID           uuid.UUID  `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	PartModelID  uuid.UUID  `gorm:"column:part_model_id;type:uuid;not null" json:"part_model_id"`
-	QuantityUsed int        `gorm:"column:quantity_used;not null" json:"quantity_used"`
-	WorkOrderID  *uuid.UUID `gorm:"column:work_order_id;type:uuid" json:"work_order_id"`
-	ConsumedBy   uuid.UUID  `gorm:"column:consumed_by;type:uuid;not null" json:"consumed_by"`
-	Notes        string     `gorm:"column:notes" json:"notes"`
-	CreatedAt    time.Time  `gorm:"column:created_at" json:"created_at"`
-}
-
-func (PartConsumptionLog) TableName() string { return "part_consumption_logs" }
-
+// -----------------------------------------------------------------------------
 // DTOs
+// -----------------------------------------------------------------------------
 
-type EquipmentModelResponse struct {
-	ID               uuid.UUID                               `json:"id"`
-	Name             string                                  `json:"name"`
-	Category         string                                  `json:"category"`
-	Description      string                                  `json:"description"`
-	Suppliers        []ModelSupplierResponse                 `json:"suppliers,omitempty"`
-	PartRequirements []EquipmentModelPartRequirementResponse `json:"part_requirements,omitempty"`
-	CreatedAt        time.Time                               `json:"created_at"`
-	UpdatedAt        time.Time                               `json:"updated_at"`
+type SiteResponse struct {
+	ID          uuid.UUID        `json:"id"`
+	Name        string           `json:"name"`
+	Location    string           `json:"location"`
+	Description string           `json:"description"`
+	Systems     []SystemResponse `json:"systems,omitempty"`
 }
 
-type PartModelResponse struct {
-	ID            uuid.UUID               `json:"id"`
-	Name          string                  `json:"name"`
-	Category      string                  `json:"category"`
-	SpareQuantity int                     `json:"spare_quantity"`
-	IsSerialized  bool                    `json:"is_serialized"`
-	Suppliers     []ModelSupplierResponse `json:"suppliers,omitempty"`
-	CreatedAt     time.Time               `json:"created_at"`
-	UpdatedAt     time.Time               `json:"updated_at"`
+type SystemResponse struct {
+	ID          uuid.UUID       `json:"id"`
+	SiteID      uuid.UUID       `json:"site_id"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Status      string          `json:"status"`
+	Assets      []AssetResponse `json:"assets,omitempty"`
 }
 
-type ConsumableResponse struct {
-	ID            uuid.UUID                       `json:"id"`
-	Name          string                          `json:"name"`
-	Category      string                          `json:"category"`
-	UnitOfMeasure string                          `json:"unit_of_measure"`
-	TotalStock    int                             `json:"total_stock"`
-	Suppliers     []ModelSupplierResponse         `json:"suppliers,omitempty"`
-	LocationStock []ConsumableLocationStockResponse `json:"location_stock,omitempty"`
-	CreatedAt     time.Time                       `json:"created_at"`
-	UpdatedAt     time.Time                       `json:"updated_at"`
-}
-
-type ConsumableLocationStockResponse struct {
-	ID           uuid.UUID `json:"id"`
-	ConsumableID uuid.UUID `json:"consumable_id"`
-	Location     string    `json:"location"`
-	Quantity     int       `json:"quantity"`
-}
-
-type EquipmentModelPartRequirementResponse struct {
-	ID               uuid.UUID          `json:"id"`
-	EquipmentModelID uuid.UUID          `json:"equipment_model_id"`
-	PartModelID      uuid.UUID          `json:"part_model_id"`
-	PartModel        *PartModelResponse `json:"part_model,omitempty"`
-	Quantity         int                `json:"quantity"`
-}
-
-type EquipmentInstanceResponse struct {
-	ID               uuid.UUID                `json:"id"`
-	Code             string                   `json:"code"`
-	EquipmentModelID uuid.UUID                `json:"equipment_model_id"`
-	EquipmentModel   *EquipmentModelResponse  `json:"equipment_model,omitempty"`
-	SupplierID       *uuid.UUID               `json:"supplier_id,omitempty"`
-	Supplier         *SupplierResponse        `json:"supplier,omitempty"`
-	Status           string                   `json:"status"`
-	Location         string                   `json:"location"`
-	Parts            []PartInstanceResponse   `json:"parts,omitempty"`
-	UsageHours       float64                  `json:"usage_hours"`
-	CreatedAt        time.Time                `json:"created_at"`
-	UpdatedAt        time.Time                `json:"updated_at"`
-}
-
-type PartInstanceResponse struct {
-	ID                  uuid.UUID          `json:"id"`
-	EquipmentInstanceID *uuid.UUID         `json:"equipment_instance_id,omitempty"`
-	PartModelID         uuid.UUID          `json:"part_model_id"`
-	PartModel           *PartModelResponse `json:"part_model,omitempty"`
-	SupplierID          *uuid.UUID         `json:"supplier_id,omitempty"`
-	Supplier            *SupplierResponse  `json:"supplier,omitempty"`
-	SerialNumber        string             `json:"serial_number,omitempty"`
-	Status              string             `json:"status"`
-	CurrentLocation     string             `json:"current_location"`
-	CreatedAt           time.Time          `json:"created_at"`
-	UpdatedAt           time.Time          `json:"updated_at"`
-}
-
-// Converters
-
-func (e *EquipmentModel) ToResponse() EquipmentModelResponse {
-	sups := make([]ModelSupplierResponse, len(e.Suppliers))
-	for i, s := range e.Suppliers {
-		sups[i] = s.ToResponse()
-	}
-	reqs := make([]EquipmentModelPartRequirementResponse, len(e.PartRequirements))
-	for i, r := range e.PartRequirements {
-		reqs[i] = r.ToResponse()
-	}
-	return EquipmentModelResponse{
-		ID:               e.ID,
-		Name:             e.Name,
-		Category:         e.Category,
-		Description:      e.Description,
-		Suppliers:        sups,
-		PartRequirements: reqs,
-		CreatedAt:        e.CreatedAt,
-		UpdatedAt:        e.UpdatedAt,
-	}
-}
-
-func (p *PartModel) ToResponse() PartModelResponse {
-	sups := make([]ModelSupplierResponse, len(p.Suppliers))
-	for i, s := range p.Suppliers {
-		sups[i] = s.ToResponse()
-	}
-	return PartModelResponse{
-		ID:            p.ID,
-		Name:          p.Name,
-		Category:      p.Category,
-		SpareQuantity: p.SpareQuantity,
-		IsSerialized:  p.IsSerialized,
-		Suppliers:     sups,
-		CreatedAt:     p.CreatedAt,
-		UpdatedAt:     p.UpdatedAt,
-	}
-}
-
-func (c *Consumable) ToResponse() ConsumableResponse {
-	sups := make([]ModelSupplierResponse, len(c.Suppliers))
-	for i, s := range c.Suppliers {
-		sups[i] = s.ToResponse()
-	}
-	locs := make([]ConsumableLocationStockResponse, len(c.LocationStock))
-	for i, l := range c.LocationStock {
-		locs[i] = ConsumableLocationStockResponse{
-			ID:           l.ID,
-			ConsumableID: l.ConsumableID,
-			Location:     l.Location,
-			Quantity:     l.Quantity,
-		}
-	}
-	return ConsumableResponse{
-		ID:            c.ID,
-		Name:          c.Name,
-		Category:      c.Category,
-		UnitOfMeasure: c.UnitOfMeasure,
-		TotalStock:    c.TotalStock,
-		Suppliers:     sups,
-		LocationStock: locs,
-		CreatedAt:     c.CreatedAt,
-		UpdatedAt:     c.UpdatedAt,
-	}
-}
-
-func (r *EquipmentModelPartRequirement) ToResponse() EquipmentModelPartRequirementResponse {
-	var pmResp *PartModelResponse
-	if r.PartModel.Name != "" {
-		pm := r.PartModel.ToResponse()
-		pmResp = &pm
-	}
-	return EquipmentModelPartRequirementResponse{
-		ID:               r.ID,
-		EquipmentModelID: r.EquipmentModelID,
-		PartModelID:      r.PartModelID,
-		PartModel:        pmResp,
-		Quantity:         r.Quantity,
-	}
-}
-
-func (e *EquipmentInstance) ToResponse() EquipmentInstanceResponse {
-	parts := make([]PartInstanceResponse, len(e.Parts))
-	for i, p := range e.Parts {
-		parts[i] = p.ToResponse()
-	}
-
-	var emResp *EquipmentModelResponse
-	if e.EquipmentModel.Name != "" { // simple check if loaded
-		r := e.EquipmentModel.ToResponse()
-		emResp = &r
-	}
-
-	var supResp *SupplierResponse
-	if e.Supplier != nil && e.Supplier.Name != "" {
-		s := e.Supplier.ToResponse()
-		supResp = &s
-	}
-
-	return EquipmentInstanceResponse{
-		ID:               e.ID,
-		Code:             e.Code,
-		EquipmentModelID: e.EquipmentModelID,
-		EquipmentModel:   emResp,
-		SupplierID:       e.SupplierID,
-		Supplier:         supResp,
-		Status:           e.Status,
-		Location:         e.Location,
-		Parts:            parts,
-		UsageHours:       e.UsageHours,
-		CreatedAt:        e.CreatedAt,
-		UpdatedAt:        e.UpdatedAt,
-	}
-}
-
-func (p *PartInstance) ToResponse() PartInstanceResponse {
-
-	var pmResp *PartModelResponse
-	if p.PartModel.Name != "" {
-		r := p.PartModel.ToResponse()
-		pmResp = &r
-	}
-
-	var supResp *SupplierResponse
-	if p.Supplier != nil && p.Supplier.Name != "" {
-		s := p.Supplier.ToResponse()
-		supResp = &s
-	}
-
-	return PartInstanceResponse{
-		ID:                  p.ID,
-		EquipmentInstanceID: p.EquipmentInstanceID,
-		PartModelID:         p.PartModelID,
-		PartModel:           pmResp,
-		SupplierID:          p.SupplierID,
-		Supplier:            supResp,
-		SerialNumber:        p.SerialNumber,
-		Status:              p.Status,
-		CurrentLocation:     p.CurrentLocation,
-		CreatedAt:           p.CreatedAt,
-		UpdatedAt:           p.UpdatedAt,
-	}
-}
-
-// Request DTOs
-
-type PartRequirementReq struct {
-	PartModelID uuid.UUID `json:"part_model_id"`
-	Quantity    int       `json:"quantity"`
-}
-
-type CreateEquipmentModelRequest struct {
-	Name             string               `json:"name" binding:"required"`
-	Category         string               `json:"category" binding:"required"`
-	Description      string               `json:"description"`
-	PartRequirements []PartRequirementReq `json:"part_requirements"`
-}
-
-type CreatePartModelRequest struct {
-	Name          string `json:"name" binding:"required"`
-	Category      string `json:"category" binding:"required"`
-	SpareQuantity int    `json:"spare_quantity"`
-	IsSerialized  bool   `json:"is_serialized"`
-}
-
-type CreateConsumableRequest struct {
-	Name          string `json:"name" binding:"required"`
-	Category      string `json:"category" binding:"required"`
-	UnitOfMeasure string `json:"unit_of_measure" binding:"required"`
-}
-
-type UpdateEquipmentModelRequest struct {
-	Name             *string              `json:"name"`
-	Category         *string              `json:"category"`
-	Description      *string              `json:"description"`
-	PartRequirements []PartRequirementReq `json:"part_requirements"`
-}
-
-type UpdateEquipmentLocationRequest struct {
-	Location string `json:"location" binding:"required"`
-}
-
-type UpdatePartModelRequest struct {
-	Name          *string `json:"name"`
-	Category      *string `json:"category"`
-	SpareQuantity *int    `json:"spare_quantity"`
-	IsSerialized  *bool   `json:"is_serialized"`
-}
-
-type CreateEquipmentInstanceRequest struct {
-	Code             string     `json:"code" binding:"required"`
-	EquipmentModelID uuid.UUID  `json:"equipment_model_id" binding:"required"`
-	SupplierID       *uuid.UUID `json:"supplier_id,omitempty"`
-	Location         string     `json:"location" binding:"required"`
-}
-
-type CreatePartInstanceRequest struct {
-	PartModelID         uuid.UUID  `json:"part_model_id" binding:"required"`
-	SupplierID          *uuid.UUID `json:"supplier_id,omitempty"`
-	SerialNumber        string     `json:"serial_number" binding:"required"`
-	EquipmentInstanceID *string    `json:"equipment_instance_id,omitempty" binding:"omitempty,uuid"`
-	CurrentLocation     string     `json:"current_location" binding:"required"`
-}
-
-type ConsumePartRequest struct {
-	PartModelID uuid.UUID  `json:"part_model_id" binding:"required"`
-	Quantity    int        `json:"quantity" binding:"required,min=1"`
-	WorkOrderID *uuid.UUID `json:"work_order_id,omitempty"`
-	Notes       string     `json:"notes"`
-}
-
-type ConsumeConsumableRequest struct {
-	ConsumableID uuid.UUID  `json:"consumable_id" binding:"required"`
-	Location     string     `json:"location" binding:"required"`
-	Quantity     int        `json:"quantity" binding:"required,min=1"`
-	WorkOrderID  *uuid.UUID `json:"work_order_id,omitempty"`
-	Notes        string     `json:"notes"`
-}
-
-type AddConsumableStockRequest struct {
-	Location string `json:"location" binding:"required"`
-	Quantity int    `json:"quantity" binding:"required,min=1"`
-}
-
-type MovePartInstanceRequest struct {
-	EquipmentInstanceID *string `json:"equipment_instance_id,omitempty" binding:"omitempty,uuid"`
-	CurrentLocation     string  `json:"current_location" binding:"required"`
-}
-
-type UpdateInstanceStatusRequest struct {
-	Status string `json:"status" binding:"required"`
-}
-
-// Old Asset Response wrapper for backward compatibility
 type AssetResponse struct {
-	ID            uuid.UUID       `json:"id"`
-	Type          string          `json:"type"`
-	ParentAssetID *uuid.UUID      `json:"parent_asset_id,omitempty"`
-	Name          string          `json:"name"`
-	Code          string          `json:"code"`
-	Status        string          `json:"status"`
-	Category      string          `json:"category"`
-	Location      string          `json:"location"`
-	StockQuantity int             `json:"stock_quantity"`
-	Parts         []AssetResponse `json:"parts,omitempty"`
-	CreatedAt     time.Time       `json:"created_at"`
-	UpdatedAt     time.Time       `json:"updated_at"`
+	ID            uuid.UUID           `json:"id"`
+	SystemID      uuid.UUID           `json:"system_id"`
+	Name          string              `json:"name"`
+	Code          string              `json:"code"`
+	Model         string              `json:"model"`
+	Manufacturer  string              `json:"manufacturer"`
+	Status        string              `json:"status"`
+	RulPercentage float64             `json:"rul_percentage"`
+	Subsystems    []SubsystemResponse `json:"subsystems,omitempty"`
 }
 
-type RecordUsageRequest struct {
-	UsageHours      float64    `json:"usage_hours" binding:"required"`
-	MaintenanceDate *time.Time `json:"maintenance_date,omitempty"`
+type SubsystemResponse struct {
+	ID          uuid.UUID           `json:"id"`
+	AssetID     uuid.UUID           `json:"asset_id"`
+	Name        string              `json:"name"`
+	Description string              `json:"description"`
+	Criticality string              `json:"criticality"`
+	Components  []ComponentResponse `json:"components,omitempty"`
+}
+
+type ComponentResponse struct {
+	ID              uuid.UUID              `json:"id"`
+	SubsystemID     uuid.UUID              `json:"subsystem_id"`
+	InventoryItemID uuid.UUID              `json:"inventory_item_id"`
+	InventoryItem   *InventoryItemResponse `json:"inventory_item,omitempty"`
+	Name            string                 `json:"name"`
+	SerialNumber    string                 `json:"serial_number"`
+	Status          string                 `json:"status"`
+	InstalledAt     time.Time              `json:"installed_at"`
+}
+
+type InventoryItemResponse struct {
+	ID                   uuid.UUID `json:"id"`
+	ItemType             string    `json:"item_type"`
+	PartNumber           string    `json:"part_number"`
+	Name                 string    `json:"name"`
+	Category             string    `json:"category"`
+	StockQuantity        int       `json:"stock_quantity"`
+	ReorderPoint         int       `json:"reorder_point"`
+	SupplierLeadTimeDays int       `json:"supplier_lead_time_days"`
+	UnitOfMeasure        string    `json:"unit_of_measure"`
+}
+
+// -----------------------------------------------------------------------------
+// Converters
+// -----------------------------------------------------------------------------
+
+func (s *Site) ToResponse() SiteResponse {
+	systems := make([]SystemResponse, len(s.Systems))
+	for i, sys := range s.Systems {
+		systems[i] = sys.ToResponse()
+	}
+	return SiteResponse{
+		ID:          s.ID,
+		Name:        s.Name,
+		Location:    s.Location,
+		Description: s.Description,
+		Systems:     systems,
+	}
+}
+
+func (sys *System) ToResponse() SystemResponse {
+	assets := make([]AssetResponse, len(sys.Assets))
+	for i, a := range sys.Assets {
+		assets[i] = a.ToResponse()
+	}
+	return SystemResponse{
+		ID:          sys.ID,
+		SiteID:      sys.SiteID,
+		Name:        sys.Name,
+		Description: sys.Description,
+		Status:      sys.Status,
+		Assets:      assets,
+	}
+}
+
+func (a *Asset) ToResponse() AssetResponse {
+	subsystems := make([]SubsystemResponse, len(a.Subsystems))
+	for i, sub := range a.Subsystems {
+		subsystems[i] = sub.ToResponse()
+	}
+	return AssetResponse{
+		ID:            a.ID,
+		SystemID:      a.SystemID,
+		Name:          a.Name,
+		Code:          a.Code,
+		Model:         a.Model,
+		Manufacturer:  a.Manufacturer,
+		Status:        a.Status,
+		RulPercentage: a.RulPercentage,
+		Subsystems:    subsystems,
+	}
+}
+
+func (sub *Subsystem) ToResponse() SubsystemResponse {
+	components := make([]ComponentResponse, len(sub.Components))
+	for i, c := range sub.Components {
+		components[i] = c.ToResponse()
+	}
+	return SubsystemResponse{
+		ID:          sub.ID,
+		AssetID:     sub.AssetID,
+		Name:        sub.Name,
+		Description: sub.Description,
+		Criticality: sub.Criticality,
+		Components:  components,
+	}
+}
+
+func (c *Component) ToResponse() ComponentResponse {
+	var invResp *InventoryItemResponse
+	if c.InventoryItem.PartNumber != "" {
+		r := c.InventoryItem.ToResponse()
+		invResp = &r
+	}
+	return ComponentResponse{
+		ID:              c.ID,
+		SubsystemID:     c.SubsystemID,
+		InventoryItemID: c.InventoryItemID,
+		InventoryItem:   invResp,
+		Name:            c.Name,
+		SerialNumber:    c.SerialNumber,
+		Status:          c.Status,
+		InstalledAt:     c.InstalledAt,
+	}
+}
+
+func (i *InventoryItem) ToResponse() InventoryItemResponse {
+	return InventoryItemResponse{
+		ID:                   i.ID,
+		ItemType:             i.ItemType,
+		PartNumber:           i.PartNumber,
+		Name:                 i.Name,
+		Category:             i.Category,
+		StockQuantity:        i.StockQuantity,
+		ReorderPoint:         i.ReorderPoint,
+		SupplierLeadTimeDays: i.SupplierLeadTimeDays,
+		UnitOfMeasure:        i.UnitOfMeasure,
+	}
+}
+
+// -----------------------------------------------------------------------------
+// Request DTOs
+// -----------------------------------------------------------------------------
+
+type CreateSiteRequest struct {
+	Name        string `json:"name" binding:"required"`
+	Location    string `json:"location"`
+	Description string `json:"description"`
+}
+
+type CreateSystemRequest struct {
+	SiteID      uuid.UUID `json:"site_id" binding:"required"`
+	Name        string    `json:"name" binding:"required"`
+	Description string    `json:"description"`
+}
+
+type CreateAssetRequest struct {
+	SystemID     uuid.UUID `json:"system_id" binding:"required"`
+	Name         string    `json:"name" binding:"required"`
+	Code         string    `json:"code"`
+	Model        string    `json:"model"`
+	Manufacturer string    `json:"manufacturer"`
+}
+
+type CreateSubsystemRequest struct {
+	AssetID     uuid.UUID `json:"asset_id" binding:"required"`
+	Name        string    `json:"name" binding:"required"`
+	Description string    `json:"description"`
+	Criticality string    `json:"criticality"`
+}
+
+type CreateInventoryItemRequest struct {
+	ItemType             string `json:"item_type" binding:"required,oneof=SPARE_PART CONSUMABLE"`
+	PartNumber           string `json:"part_number" binding:"required"`
+	Name                 string `json:"name" binding:"required"`
+	Category             string `json:"category"`
+	StockQuantity        int    `json:"stock_quantity"`
+	ReorderPoint         int    `json:"reorder_point"`
+	SupplierLeadTimeDays int    `json:"supplier_lead_time_days"`
+	UnitOfMeasure        string `json:"unit_of_measure"`
+}
+
+type CreateComponentRequest struct {
+	SubsystemID     uuid.UUID `json:"subsystem_id" binding:"required"`
+	InventoryItemID uuid.UUID `json:"inventory_item_id" binding:"required"`
+	Name            string    `json:"name" binding:"required"`
+	SerialNumber    string    `json:"serial_number"`
 }
