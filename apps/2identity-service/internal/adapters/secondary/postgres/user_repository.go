@@ -80,16 +80,25 @@ func (r *UserRepository) FindByTeamID(ctx context.Context, teamID uuid.UUID) ([]
 	return users, nil
 }
 
-// FindAll retrieves a paginated list of users with their roles.
-func (r *UserRepository) FindAll(ctx context.Context, offset, limit int) ([]domain.User, int64, error) {
+// FindAll retrieves a paginated list of users with their roles, optionally filtered by site ID.
+func (r *UserRepository) FindAll(ctx context.Context, siteIDFilter *string, offset, limit int) ([]domain.User, int64, error) {
 	var users []domain.User
 	var total int64
 
+	query := r.db.WithContext(ctx).Model(&domain.User{})
+	if siteIDFilter != nil {
+		if *siteIDFilter == "" {
+			query = query.Where("site_id IS NULL")
+		} else {
+			query = query.Where("site_id = ?", *siteIDFilter)
+		}
+	}
+
 	// Count total
-	r.db.WithContext(ctx).Model(&domain.User{}).Count(&total)
+	query.Count(&total)
 
 	// Fetch paginated results
-	result := r.db.WithContext(ctx).
+	result := query.
 		Preload("Role").
 		Preload("Role.InternalPrivileges").
 		Preload("Team").

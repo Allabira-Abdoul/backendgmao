@@ -13,7 +13,7 @@ import (
 // Claims represents the custom JWT claims for the GMAO system.
 type Claims struct {
 	UserID     string   `json:"user_id"`
-	UserType   string   `json:"user_type"`
+	SiteID     string   `json:"site_id,omitempty"`
 	Email      string   `json:"email"`
 	FullName   string   `json:"full_name"`
 	Role       string   `json:"role"`
@@ -59,12 +59,12 @@ func (m *JWTManager) GetRefreshTokenDuration() time.Duration {
 }
 
 // GenerateAccessToken creates a signed JWT access token.
-func (m *JWTManager) GenerateAccessToken(userID, userType, email, fullName, role string, privileges []string) (string, time.Time, error) {
+func (m *JWTManager) GenerateAccessToken(userID, siteID, email, fullName, role string, privileges []string) (string, time.Time, error) {
 	expiresAt := time.Now().Add(m.accessExpiry)
 
 	claims := &Claims{
 		UserID:     userID,
-		UserType:   userType,
+		SiteID:     siteID,
 		Email:      email,
 		FullName:   fullName,
 		Role:       role,
@@ -92,7 +92,7 @@ func (m *JWTManager) GenerateInternalServiceToken(serviceName string) (string, e
 
 	claims := &Claims{
 		UserID:     "internal-service",
-		UserType:   "SUPERADMIN",
+		SiteID:     "",
 		Email:      serviceName + "@gmao.internal",
 		FullName:   serviceName,
 		Role:       "System",

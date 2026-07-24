@@ -13,8 +13,8 @@ type UserUseCase interface {
 	GetUserByID(ctx context.Context, id uuid.UUID) (*domain.UserResponse, error)
 	GetUserByIDInternal(ctx context.Context, id uuid.UUID) (*domain.InternalUserResponse, error)
 	GetUserByEmail(ctx context.Context, email string) (*domain.InternalUserResponse, error)
-	ListUsers(ctx context.Context, limit, offset int) ([]domain.UserResponse, int64, error)
-	GetCompactUsers(ctx context.Context) ([]domain.CompactUserResponse, error)
+	ListUsers(ctx context.Context, siteIDFilter *string, limit, offset int) ([]domain.UserResponse, int64, error)
+	GetCompactUsers(ctx context.Context, siteIDFilter *string) ([]domain.CompactUserResponse, error)
 	UpdateUser(ctx context.Context, id uuid.UUID, req domain.UpdateUserRequest) (*domain.UserResponse, error)
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 	SuspendUser(ctx context.Context, id uuid.UUID) error

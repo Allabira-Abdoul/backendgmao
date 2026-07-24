@@ -30,7 +30,14 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 	// Handlers should only orchestrate request data, not validate pagination logic.
 	pagination := response.GetPagination(c, 1, 20)
 
-	users, total, err := h.userService.ListUsers(c.Request.Context(), pagination.Limit, pagination.Offset)
+	var siteIDFilter *string
+	siteIDStr, exists := c.Get(string(middleware.ContextKeySiteID))
+	if exists && siteIDStr != nil && siteIDStr.(string) != "" {
+		s := siteIDStr.(string)
+		siteIDFilter = &s
+	}
+
+	users, total, err := h.userService.ListUsers(c.Request.Context(), siteIDFilter, pagination.Limit, pagination.Offset)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list users")
 		return
@@ -41,7 +48,14 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 
 // GetCompactUsers handles GET /users/compact
 func (h *UserHandler) GetCompactUsers(c *gin.Context) {
-	users, err := h.userService.GetCompactUsers(c.Request.Context())
+	var siteIDFilter *string
+	siteIDStr, exists := c.Get(string(middleware.ContextKeySiteID))
+	if exists && siteIDStr != nil && siteIDStr.(string) != "" {
+		s := siteIDStr.(string)
+		siteIDFilter = &s
+	}
+
+	users, err := h.userService.GetCompactUsers(c.Request.Context(), siteIDFilter)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list compact users")
 		return
@@ -122,6 +136,12 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.ValidationError(c, http.StatusBadRequest, "Invalid request body", err.Error())
 		return
+	}
+
+	siteIDStr, exists := c.Get(string(middleware.ContextKeySiteID))
+	if exists && siteIDStr != nil && siteIDStr.(string) != "" {
+		s := siteIDStr.(string)
+		req.SiteID = &s
 	}
 
 	user, err := h.userService.CreateUser(c.Request.Context(), req)

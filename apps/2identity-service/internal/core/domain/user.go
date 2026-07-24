@@ -15,18 +15,12 @@ const (
 	StatusLocked   AccountStatus = "LOCKED"
 )
 
-// UserType constants for Single Table Inheritance (STI)
-const (
-	UserTypeSuperAdmin = "SUPERADMIN"
-	UserTypeTechnician = "TECHNICIAN"
-	UserTypeSupervisor = "SUPERVISOR"
-	UserTypeViewer     = "VIEWER"
-)
+// Site isolation support: site_id dictates the user's tenant
 
 // User represents the User entity in the GMAO system.
 type User struct {
 	ID                 uuid.UUID     `gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	UserType           string        `gorm:"column:user_type;type:varchar(50);not null" json:"user_type"`
+	SiteID             *uuid.UUID    `gorm:"column:site_id;type:uuid" json:"site_id"`
 	FullName           string        `gorm:"column:full_name;not null" json:"full_name"`
 	Email         string        `gorm:"column:email;uniqueIndex;not null" json:"email"`
 	Password           string        `gorm:"column:password;not null" json:"-"`
@@ -59,7 +53,7 @@ func (u *User) Activate() {
 // UserResponse is the DTO returned by API endpoints (excludes password).
 type UserResponse struct {
 	ID                 uuid.UUID     `json:"id"`
-	UserType           string        `json:"user_type"`
+	SiteID             *uuid.UUID    `json:"site_id"`
 	FullName           string        `json:"full_name"`
 	Email              string        `json:"email"`
 	Status             AccountStatus `json:"status"`
@@ -75,7 +69,7 @@ type UserResponse struct {
 func (u *User) ToResponse() UserResponse {
 	resp := UserResponse{
 		ID:                 u.ID,
-		UserType:           u.UserType,
+		SiteID:             u.SiteID,
 		FullName:           u.FullName,
 		Email:              u.Email,
 		Status:             u.Status,
@@ -117,7 +111,7 @@ func (u *User) ToCompactResponse() CompactUserResponse {
 // It includes the hashed password for authentication verification.
 type InternalUserResponse struct {
 	ID                 uuid.UUID     `json:"id"`
-	UserType           string        `json:"user_type"`
+	SiteID             *uuid.UUID    `json:"site_id"`
 	FullName           string        `json:"full_name"`
 	Email         string        `json:"email"`
 	Password           string        `json:"password"`
@@ -131,7 +125,7 @@ type InternalUserResponse struct {
 func (u *User) ToInternalResponse() InternalUserResponse {
 	return InternalUserResponse{
 		ID:                 u.ID,
-		UserType:           u.UserType,
+		SiteID:             u.SiteID,
 		FullName:           u.FullName,
 		Email:              u.Email,
 		Password:           u.Password,
@@ -144,7 +138,7 @@ func (u *User) ToInternalResponse() InternalUserResponse {
 
 // CreateUserRequest is the DTO for creating a new user.
 type CreateUserRequest struct {
-	UserType string `json:"user_type" binding:"required,oneof=SUPERADMIN TECHNICIAN SUPERVISOR VIEWER"`
+	SiteID *string `json:"site_id" binding:"omitempty,uuid"`
 	FullName string `json:"full_name" binding:"required,min=2,max=255"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=8"`
@@ -154,7 +148,7 @@ type CreateUserRequest struct {
 
 // UpdateUserRequest is the DTO for updating an existing user.
 type UpdateUserRequest struct {
-	UserType *string `json:"user_type,omitempty" binding:"omitempty,oneof=SUPERADMIN TECHNICIAN SUPERVISOR VIEWER"`
+	SiteID *string `json:"site_id,omitempty" binding:"omitempty,uuid"`
 	FullName *string `json:"full_name,omitempty" binding:"omitempty,min=2,max=255"`
 	Email    *string `json:"email,omitempty" binding:"omitempty,email"`
 	Status   *string `json:"status,omitempty" binding:"omitempty,oneof=ACTIVE INACTIVE LOCKED"`

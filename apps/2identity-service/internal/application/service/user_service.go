@@ -64,8 +64,17 @@ func (s *UserService) CreateUser(ctx context.Context, req domain.CreateUserReque
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
+	var siteIDPtr *uuid.UUID
+	if req.SiteID != nil && *req.SiteID != "" {
+		id, err := uuid.Parse(*req.SiteID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid site ID: %w", err)
+		}
+		siteIDPtr = &id
+	}
+
 	user := &domain.User{
-		UserType:           req.UserType,
+		SiteID:             siteIDPtr,
 		FullName:           req.FullName,
 		Email:              req.Email,
 		Password:           hashedPassword,
@@ -127,9 +136,9 @@ func (s *UserService) GetUserByEmail(ctx context.Context, email string) (*domain
 	return &resp, nil
 }
 
-// ListUsers returns a paginated list of users.
-func (s *UserService) ListUsers(ctx context.Context, limit, offset int) ([]domain.UserResponse, int64, error) {
-	users, total, err := s.userRepo.FindAll(ctx, offset, limit)
+// ListUsers returns a paginated list of users, filtered by siteID if provided.
+func (s *UserService) ListUsers(ctx context.Context, siteIDFilter *string, limit, offset int) ([]domain.UserResponse, int64, error) {
+	users, total, err := s.userRepo.FindAll(ctx, siteIDFilter, offset, limit)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list users: %w", err)
 	}
@@ -143,8 +152,8 @@ func (s *UserService) ListUsers(ctx context.Context, limit, offset int) ([]domai
 }
 
 // GetCompactUsers returns a lightweight list of users.
-func (s *UserService) GetCompactUsers(ctx context.Context) ([]domain.CompactUserResponse, error) {
-	users, _, err := s.userRepo.FindAll(ctx, 0, 1000) // 1000 max for dropdowns
+func (s *UserService) GetCompactUsers(ctx context.Context, siteIDFilter *string) ([]domain.CompactUserResponse, error) {
+	users, _, err := s.userRepo.FindAll(ctx, siteIDFilter, 0, 1000) // 1000 max for dropdowns
 	if err != nil {
 		return nil, fmt.Errorf("failed to list compact users: %w", err)
 	}
@@ -166,9 +175,18 @@ func (s *UserService) UpdateUser(ctx context.Context, id uuid.UUID, req domain.U
 
 	changes := make(map[string]interface{})
 
-	if req.UserType != nil {
-		changes["user_type"] = map[string]interface{}{"old": user.UserType, "new": *req.UserType}
-		user.UserType = *req.UserType
+	if req.SiteID != nil {
+		if *req.SiteID == "" {
+			changes["site_id"] = map[string]interface{}{"old": user.SiteID, "new": nil}
+			user.SiteID = nil
+		} else {
+			siteID, err := uuid.Parse(*req.SiteID)
+			if err != nil {
+				return nil, fmt.Errorf("invalid site ID: %w", err)
+			}
+			changes["site_id"] = map[string]interface{}{"old": user.SiteID, "new": siteID.String()}
+			user.SiteID = &siteID
+		}
 	}
 
 	if req.FullName != nil {

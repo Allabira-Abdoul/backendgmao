@@ -5,7 +5,7 @@ import (
 )
 
 func RegisterRoutes(router *gin.Engine, assetHandler *AssetHandler) {
-	v1 := router.Group("/api/v1")
+	v1 := router.Group("/")
 	{
 		// Hierarchy Endpoints
 		v1.POST("/sites", assetHandler.CreateSite)

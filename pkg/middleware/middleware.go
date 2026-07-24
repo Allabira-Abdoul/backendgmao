@@ -19,6 +19,7 @@ const (
 	ContextKeyFullName   ContextKey = "auth_full_name"
 	ContextKeyRole       ContextKey = "auth_role"
 	ContextKeyPrivileges ContextKey = "auth_privileges"
+	ContextKeySiteID     ContextKey = "auth_site_id"
 )
 
 // RequireAuth returns a Gin middleware that validates the JWT access token
@@ -68,6 +69,7 @@ func RequireAuth(jwtManager *auth.JWTManager) gin.HandlerFunc {
 		c.Set(string(ContextKeyFullName), claims.FullName)
 		c.Set(string(ContextKeyRole), claims.Role)
 		c.Set(string(ContextKeyPrivileges), claims.Privileges)
+		c.Set(string(ContextKeySiteID), claims.SiteID)
 
 		// Inject user info into standard request context for downstream service layer
 		ctx := c.Request.Context()
@@ -76,6 +78,7 @@ func RequireAuth(jwtManager *auth.JWTManager) gin.HandlerFunc {
 		ctx = context.WithValue(ctx, ContextKeyFullName, claims.FullName)
 		ctx = context.WithValue(ctx, ContextKeyRole, claims.Role)
 		ctx = context.WithValue(ctx, ContextKeyPrivileges, claims.Privileges)
+		ctx = context.WithValue(ctx, ContextKeySiteID, claims.SiteID)
 		c.Request = c.Request.WithContext(ctx)
 
 		c.Next()
